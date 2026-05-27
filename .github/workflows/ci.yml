@@ -24,6 +24,9 @@ jobs:
           rm -rf ../contributors-please
           ln -s "$PWD/.deps/contributors-please" ../contributors-please
 
+      - name: Install local library dependency
+        run: npm ci --prefix .deps/contributors-please
+
       - uses: actions/setup-node@v6
         with:
           node-version: 24

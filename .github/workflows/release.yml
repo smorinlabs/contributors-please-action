@@ -17,7 +17,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: smorinlabs/contributors-please
-          ref: ${{ github.ref_name }}
+          ref: ${{ vars.CONTRIBUTORS_PLEASE_LIBRARY_REF || 'v1.0.0' }}
           path: .deps/contributors-please
           token: ${{ secrets.CONTRIBUTORS_PLEASE_LIBRARY_TOKEN || github.token }}
 
@@ -25,6 +25,9 @@ jobs:
         run: |
           rm -rf ../contributors-please
           ln -s "$PWD/.deps/contributors-please" ../contributors-please
+
+      - name: Install local library dependency
+        run: npm ci --prefix .deps/contributors-please
 
       - uses: actions/setup-node@v6
         with:
