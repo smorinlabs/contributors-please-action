@@ -1,7 +1,7 @@
 # contributors-please-action
 
 GitHub Action wrapper for
-[`@smorinlabs/contributors-please`](https://www.npmjs.com/package/@smorinlabs/contributors-please).
+[`contributors-please`](https://www.npmjs.com/package/contributors-please).
 It discovers contributors from commits and the GitHub API, classifies them by
 path, updates `.contributors.jsonl`, and renders contributor markdown.
 
@@ -84,7 +84,7 @@ classification:
 Run the CLI once to bootstrap state:
 
 ```bash
-npx @smorinlabs/contributors-please@1 init \
+npx contributors-please@1 init \
   --non-interactive \
   --owner OWNER \
   --repo REPO \

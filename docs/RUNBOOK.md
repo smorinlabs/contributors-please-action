@@ -6,7 +6,7 @@ The E2E workflow can be run manually, runs nightly, and also runs for
 
 ## Prerequisites
 
-- `@smorinlabs/contributors-please@1.0.0` is published to npm.
+- `contributors-please@1.0.0` is published to npm.
 - `smorinlabs/contributors-please-action@v1.0.0` is tagged and points at a
   commit with a reproducible `dist/index.js`; the release workflow has moved
   the major `v1` tag to the same commit for Action consumers.
@@ -50,7 +50,7 @@ Run this on a fresh fork or throwaway branch of
 4. Bootstrap or refresh state with the published CLI:
 
    ```bash
-   npx @smorinlabs/contributors-please@1 init \
+   npx contributors-please@1 init \
      --non-interactive \
      --owner smorinlabs \
      --repo py-launch-blueprint \
