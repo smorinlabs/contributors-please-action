@@ -17,6 +17,11 @@ The E2E workflow can be run manually, runs nightly, and also runs for
   - `CONTRIBUTORS_PLEASE_APP_ID`
   - `CONTRIBUTORS_PLEASE_PRIVATE_KEY`
   - `CONTRIBUTORS_PLEASE_PAT`
+- If `smorinlabs/contributors-please` is still private when this Action repo's
+  CI or release workflow runs, configure `CONTRIBUTORS_PLEASE_LIBRARY_TOKEN` in
+  `smorinlabs/contributors-please-action` with read access to the library repo.
+  The workflow falls back to `github.token`, which cannot read private sibling
+  repositories unless repository access is explicitly granted.
 - For the optional scheduled GitHub Enterprise smoke job:
   - a self-hosted runner labeled `contributors-please-ghe`
   - repository variables on `smorinlabs/contributors-please-action`:
