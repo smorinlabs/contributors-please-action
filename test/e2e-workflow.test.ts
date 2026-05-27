@@ -123,6 +123,7 @@ describe("E2E workflow", () => {
       /These secrets are configured in the `smorinlabs\/contributors-please-action`\s+repository/
     );
     expect(runbook).toContain("CONTRIBUTORS_PLEASE_LIBRARY_TOKEN");
+    expect(runbook).toContain("CONTRIBUTORS_PLEASE_LIBRARY_REF");
     expect(runbook).not.toContain("These secrets are configured in the test repository");
   });
 });

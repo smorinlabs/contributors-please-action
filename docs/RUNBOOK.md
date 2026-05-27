@@ -22,6 +22,10 @@ The E2E workflow can be run manually, runs nightly, and also runs for
   `smorinlabs/contributors-please-action` with read access to the library repo.
   The workflow falls back to `github.token`, which cannot read private sibling
   repositories unless repository access is explicitly granted.
+- The action CI workflow checks out
+  `vars.CONTRIBUTORS_PLEASE_LIBRARY_REF` when set, otherwise
+  `contributors-please-impl`. Set the variable to `main` after the library PR is
+  merged and the implementation branch is no longer the intended source.
 - For the optional scheduled GitHub Enterprise smoke job:
   - a self-hosted runner labeled `contributors-please-ghe`
   - repository variables on `smorinlabs/contributors-please-action`:

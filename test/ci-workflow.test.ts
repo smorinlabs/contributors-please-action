@@ -35,7 +35,7 @@ describe("CI workflow", () => {
 
     expect(dependencyCheckout).toBeGreaterThanOrEqual(0);
     expect(dependencyCheckoutStep?.with).toMatchObject({
-      ref: "contributors-please-impl",
+      ref: "${{ vars.CONTRIBUTORS_PLEASE_LIBRARY_REF || 'contributors-please-impl' }}",
       path: ".deps/contributors-please",
       token: "${{ secrets.CONTRIBUTORS_PLEASE_LIBRARY_TOKEN || github.token }}",
     });
