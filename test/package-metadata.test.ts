@@ -6,6 +6,7 @@ interface PackageJson {
   version: string;
   private?: boolean;
   main: string;
+  dependencies: Record<string, string>;
   scripts: Record<string, string>;
 }
 
@@ -19,6 +20,10 @@ describe("package metadata", () => {
     expect(pkg.version).toBe("1.0.0");
     expect(pkg.private).toBe(true);
     expect(pkg.main).toBe("dist/index.js");
+    expect(pkg.dependencies).toMatchObject({
+      "contributors-please": "file:../contributors-please",
+    });
+    expect(pkg.dependencies).not.toHaveProperty("@smorinlabs/contributors-please");
   });
 
   it("keeps the committed action bundle in the local check gate", async () => {

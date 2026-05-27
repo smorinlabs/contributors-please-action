@@ -47389,7 +47389,7 @@ class Contributors {
         const outputPath = (0,external_node_path_namespaceObject.join)(this.options.repoPath, this.config.outputFile);
         const stateExists = await exists(statePath);
         if (!stateExists && !this.options.bootstrap) {
-            throw new Error(`No state file found at \`${this.config.stateFile}\`. Run npx @smorinlabs/contributors-please init locally to bootstrap, then commit the result.`);
+            throw new Error(`No state file found at \`${this.config.stateFile}\`. Run npx contributors-please init locally to bootstrap, then commit the result.`);
         }
         const existingState = stateExists ? await readStateFile(statePath) : [];
         const declaredFirstSeenWarnings = existingState

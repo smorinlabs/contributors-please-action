@@ -16,7 +16,7 @@
     "@actions/core": "^1.11.1",
     "@octokit/auth-app": "^8.1.1",
     "@octokit/request": "^10.0.3",
-    "@smorinlabs/contributors-please": "file:../contributors-please",
+    "contributors-please": "file:../contributors-please",
     "undici": "^5.29.0"
   },
   "devDependencies": {

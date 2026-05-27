@@ -9,7 +9,7 @@ import {
   type CommitResult,
   type CheckResult,
   type OpenPullRequestResult,
-} from "@smorinlabs/contributors-please";
+} from "contributors-please";
 import {
   createAppToken,
   githubNoReplyEmail,
