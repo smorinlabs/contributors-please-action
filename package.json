@@ -8,7 +8,7 @@
   "main": "dist/index.js",
   "scripts": {
     "clean": "rm -rf dist coverage",
-    "build": "ncc build src/index.ts -o dist",
+    "build": "ncc build src/index.ts -o dist && node scripts/normalize-dist.mjs",
     "test": "vitest run",
     "check": "npm test && npm run build && git diff --exit-code -- dist"
   },

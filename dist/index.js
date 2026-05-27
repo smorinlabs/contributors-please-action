@@ -27679,7 +27679,7 @@ const promises_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.ur
 var external_node_util_ = __nccwpck_require__(7975);
 ;// CONCATENATED MODULE: external "module"
 const external_module_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("module");
-;// CONCATENATED MODULE: ../contributors-please/dist/lib.js
+;// CONCATENATED MODULE: contributors-please/dist/lib.js
 
 /******/ var __webpack_modules__ = ({
 
