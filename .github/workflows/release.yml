@@ -18,8 +18,13 @@ jobs:
         with:
           repository: smorinlabs/contributors-please
           ref: ${{ github.ref_name }}
-          path: ../contributors-please
+          path: .deps/contributors-please
           token: ${{ secrets.CONTRIBUTORS_PLEASE_LIBRARY_TOKEN || github.token }}
+
+      - name: Link local library dependency
+        run: |
+          rm -rf ../contributors-please
+          ln -s "$PWD/.deps/contributors-please" ../contributors-please
 
       - uses: actions/setup-node@v6
         with:

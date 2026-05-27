@@ -34,6 +34,11 @@ describe("release workflow", () => {
         step.with?.repository === "smorinlabs/contributors-please"
     );
     const dependencyCheckout = steps.indexOf(dependencyCheckoutStep ?? {});
+    const dependencyLink = steps.findIndex(
+      step =>
+        step.run?.includes(".deps/contributors-please") &&
+        step.run.includes("../contributors-please")
+    );
     const setupNode = steps.find(step => step.with?.["node-version"]);
     const versionCheck = steps.findIndex(
       step =>
@@ -55,10 +60,12 @@ describe("release workflow", () => {
     expect(dependencyCheckout).toBeGreaterThanOrEqual(0);
     expect(dependencyCheckoutStep?.with).toMatchObject({
       ref: "${{ github.ref_name }}",
-      path: "../contributors-please",
+      path: ".deps/contributors-please",
       token: "${{ secrets.CONTRIBUTORS_PLEASE_LIBRARY_TOKEN || github.token }}",
     });
+    expect(dependencyLink).toBeGreaterThan(dependencyCheckout);
     expect(versionCheck).toBeGreaterThan(dependencyCheckout);
+    expect(npmCi).toBeGreaterThan(dependencyLink);
     expect(npmCi).toBeGreaterThan(versionCheck);
     expect(npmTest).toBeGreaterThan(npmCi);
     expect(build).toBeGreaterThan(npmTest);
