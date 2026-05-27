@@ -17,15 +17,13 @@ The E2E workflow can be run manually, runs nightly, and also runs for
   - `CONTRIBUTORS_PLEASE_APP_ID`
   - `CONTRIBUTORS_PLEASE_PRIVATE_KEY`
   - `CONTRIBUTORS_PLEASE_PAT`
-- If `smorinlabs/contributors-please` is still private when this Action repo's
-  CI or release workflow runs, configure `CONTRIBUTORS_PLEASE_LIBRARY_TOKEN` in
+- If `smorinlabs/contributors-please` is private in a fork or restricted
+  release setup, configure `CONTRIBUTORS_PLEASE_LIBRARY_TOKEN` in
   `smorinlabs/contributors-please-action` with read access to the library repo.
-  The workflow falls back to `github.token`, which cannot read private sibling
-  repositories unless repository access is explicitly granted.
+  Public sibling checkouts fall back to `github.token`.
 - The action CI workflow checks out
   `vars.CONTRIBUTORS_PLEASE_LIBRARY_REF` when set, otherwise
-  `contributors-please-impl`. Set the variable to `main` after the library PR is
-  merged and the implementation branch is no longer the intended source.
+  `main`.
 - For the optional scheduled GitHub Enterprise smoke job:
   - a self-hosted runner labeled `contributors-please-ghe`
   - repository variables on `smorinlabs/contributors-please-action`:

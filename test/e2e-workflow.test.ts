@@ -124,6 +124,7 @@ describe("E2E workflow", () => {
     );
     expect(runbook).toContain("CONTRIBUTORS_PLEASE_LIBRARY_TOKEN");
     expect(runbook).toContain("CONTRIBUTORS_PLEASE_LIBRARY_REF");
+    expect(runbook).toMatch(/otherwise\s+`main`/);
     expect(runbook).not.toContain("These secrets are configured in the test repository");
   });
 });
