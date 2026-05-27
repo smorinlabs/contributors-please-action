@@ -1,0 +1,261 @@
+name: E2E
+
+on:
+  workflow_dispatch:
+    inputs:
+      target-owner:
+        description: Scratch repository owner.
+        required: false
+        default: smorinlabs
+      target-repo:
+        description: Scratch repository name.
+        required: false
+        default: contributors-please-e2e
+  schedule:
+    - cron: "17 8 * * *"
+  push:
+    tags:
+      - v*.*.*
+
+permissions:
+  contents: read
+
+jobs:
+  scratch-repo:
+    runs-on: ubuntu-latest
+    env:
+      TARGET_OWNER: ${{ inputs.target-owner || 'smorinlabs' }}
+      TARGET_REPO: ${{ inputs.target-repo || 'contributors-please-e2e' }}
+      ACTION_PATH: .github/actions/contributors-please-action
+    steps:
+      - name: Verify required secrets
+        env:
+          APP_ID: ${{ secrets.CONTRIBUTORS_PLEASE_APP_ID }}
+          PRIVATE_KEY: ${{ secrets.CONTRIBUTORS_PLEASE_PRIVATE_KEY }}
+          PAT: ${{ secrets.CONTRIBUTORS_PLEASE_PAT }}
+        run: |
+          test -n "$APP_ID"
+          test -n "$PRIVATE_KEY"
+          test -n "$PAT"
+
+      - name: Mint checkout App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.CONTRIBUTORS_PLEASE_APP_ID }}
+          private-key: ${{ secrets.CONTRIBUTORS_PLEASE_PRIVATE_KEY }}
+          owner: ${{ env.TARGET_OWNER }}
+          repositories: ${{ env.TARGET_REPO }}
+
+      - name: Checkout scratch repository
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }}
+          token: ${{ steps.app-token.outputs.token }}
+          ref: main
+          fetch-depth: 0
+
+      - name: Checkout action under test
+        uses: actions/checkout@v6
+        with:
+          path: ${{ env.ACTION_PATH }}
+
+      - name: Prepare synthetic contributor commit
+        run: |
+          mkdir -p src docs tests
+          printf 'print("e2e %s")\n' "$GITHUB_RUN_ID" > "src/e2e-${GITHUB_RUN_ID}.py"
+          printf '# E2E %s\n' "$GITHUB_RUN_ID" > "docs/e2e-${GITHUB_RUN_ID}.md"
+          printf 'def test_e2e_%s():\n    assert True\n' "$GITHUB_RUN_ID" > "tests/test_e2e_${GITHUB_RUN_ID}.py"
+          git add src docs tests
+          git -c user.name="contributors-please e2e" \
+            -c user.email="contributors-please-e2e@users.noreply.github.com" \
+            commit -m "test: contributors-please e2e ${GITHUB_RUN_ID}"
+          git push origin HEAD:main
+
+      - name: Exercise commit mode with PAT
+        id: commit-mode
+        uses: ./.github/actions/contributors-please-action
+        env:
+          GITHUB_REPOSITORY: ${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }}
+          GITHUB_REF_NAME: main
+        with:
+          pat: ${{ secrets.CONTRIBUTORS_PLEASE_PAT }}
+          mode: commit
+          bootstrap: true
+          output-file: CONTRIBUTORS.md
+          state-file: .contributors.jsonl
+          config-file: .contributors.yml
+
+      - name: Verify commit mode output
+        run: |
+          test "${{ steps.commit-mode.outputs.token-source }}" = "pat"
+          test "${{ steps.commit-mode.outputs.changed }}" = "true"
+          test -n "${{ steps.commit-mode.outputs.commit-sha }}"
+
+      - name: Prepare pull-request synthetic contributor commit
+        run: |
+          git checkout main
+          git pull --ff-only origin main
+          pr_path="src/e2e-pr-${GITHUB_RUN_ID}.py"
+          printf 'print("e2e pr %s")\n' "$GITHUB_RUN_ID" > "$pr_path"
+          git add src
+          git -c user.name="contributors-please e2e" \
+            -c user.email="contributors-please-e2e@users.noreply.github.com" \
+            commit -m "test: contributors-please pr ${GITHUB_RUN_ID}"
+          git push origin HEAD:main
+
+      - name: Exercise pull-request mode with App token
+        id: pull-request-mode
+        uses: ./.github/actions/contributors-please-action
+        env:
+          GITHUB_REPOSITORY: ${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }}
+          GITHUB_REF_NAME: main
+        with:
+          app-id: ${{ secrets.CONTRIBUTORS_PLEASE_APP_ID }}
+          private-key: ${{ secrets.CONTRIBUTORS_PLEASE_PRIVATE_KEY }}
+          mode: pull-request
+          bootstrap: true
+          output-file: CONTRIBUTORS.md
+          state-file: .contributors.jsonl
+          config-file: .contributors.yml
+
+      - name: Verify pull request and label
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_NUMBER: ${{ steps.pull-request-mode.outputs.pr-number }}
+        run: |
+          test -n "$PR_NUMBER"
+          gh pr view "$PR_NUMBER" \
+            --repo "$TARGET_OWNER/$TARGET_REPO" \
+            --json labels,files \
+            --jq '
+              (.labels | map(.name) | index("contributors-please: pending")) and
+              ([.files[].path] | sort == [".contributors.jsonl", "CONTRIBUTORS.md"])
+            ' | grep '^true$'
+
+      - name: Remove pending label before re-apply
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_NUMBER: ${{ steps.pull-request-mode.outputs.pr-number }}
+        run: |
+          gh pr edit "$PR_NUMBER" \
+            --repo "$TARGET_OWNER/$TARGET_REPO" \
+            --remove-label "contributors-please: pending"
+
+      - name: Prepare second synthetic contributor commit
+        run: |
+          git checkout main
+          git pull --ff-only origin main
+          reapply_path="docs/e2e-reapply-${GITHUB_RUN_ID}.md"
+          printf '# E2E reapply %s\n' "$GITHUB_RUN_ID" > "$reapply_path"
+          git add docs
+          git -c user.name="contributors-please e2e" \
+            -c user.email="contributors-please-e2e@users.noreply.github.com" \
+            commit -m "test: contributors-please label reapply ${GITHUB_RUN_ID}"
+          git push origin HEAD:main
+
+      - name: Re-apply pull request label with App token
+        id: reapply-label-mode
+        uses: ./.github/actions/contributors-please-action
+        env:
+          GITHUB_REPOSITORY: ${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }}
+          GITHUB_REF_NAME: main
+        with:
+          app-id: ${{ secrets.CONTRIBUTORS_PLEASE_APP_ID }}
+          private-key: ${{ secrets.CONTRIBUTORS_PLEASE_PRIVATE_KEY }}
+          mode: pull-request
+          bootstrap: true
+          output-file: CONTRIBUTORS.md
+          state-file: .contributors.jsonl
+          config-file: .contributors.yml
+
+      - name: Verify label was re-applied
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_NUMBER: ${{ steps.reapply-label-mode.outputs.pr-number }}
+        run: |
+          test "$PR_NUMBER" = "${{ steps.pull-request-mode.outputs.pr-number }}"
+          gh pr view "$PR_NUMBER" \
+            --repo "$TARGET_OWNER/$TARGET_REPO" \
+            --json labels \
+            --jq '
+              .labels
+              | map(.name)
+              | index("contributors-please: pending") != null
+            ' \
+            | grep '^true$'
+
+      - name: Exercise idempotent check mode with PAT
+        id: check-mode
+        uses: ./.github/actions/contributors-please-action
+        env:
+          GITHUB_REPOSITORY: ${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }}
+          GITHUB_REF_NAME: main
+        with:
+          pat: ${{ secrets.CONTRIBUTORS_PLEASE_PAT }}
+          mode: check
+          dry-run: true
+          output-file: CONTRIBUTORS.md
+          state-file: .contributors.jsonl
+          config-file: .contributors.yml
+
+      - name: Verify check mode output
+        run: |
+          test "${{ steps.check-mode.outputs.token-source }}" = "pat"
+          test "${{ steps.check-mode.outputs.changed }}" = "false"
+
+  github-enterprise-smoke:
+    if: ${{ vars.GHE_SERVER_URL != '' && vars.GHE_TARGET_OWNER != '' && vars.GHE_TARGET_REPO != '' }}
+    runs-on: [self-hosted, contributors-please-ghe]
+    env:
+      GHE_SERVER_URL: ${{ vars.GHE_SERVER_URL }}
+      GHE_TARGET_OWNER: ${{ vars.GHE_TARGET_OWNER }}
+      GHE_TARGET_REPO: ${{ vars.GHE_TARGET_REPO }}
+      ACTION_PATH: .github/actions/contributors-please-action
+    steps:
+      - name: Verify required GitHub Enterprise inputs
+        env:
+          GHE_PAT: ${{ secrets.GHE_CONTRIBUTORS_PLEASE_PAT }}
+        run: |
+          test -n "$GHE_SERVER_URL"
+          test -n "$GHE_TARGET_OWNER"
+          test -n "$GHE_TARGET_REPO"
+          test -n "$GHE_PAT"
+
+      - name: Checkout GitHub Enterprise smoke repository
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ env.GHE_TARGET_OWNER }}/${{ env.GHE_TARGET_REPO }}
+          token: ${{ secrets.GHE_CONTRIBUTORS_PLEASE_PAT }}
+          github-server-url: ${{ vars.GHE_SERVER_URL }}
+          ref: main
+          fetch-depth: 0
+
+      - name: Checkout action under test
+        uses: actions/checkout@v6
+        with:
+          path: ${{ env.ACTION_PATH }}
+
+      - name: Exercise GitHub Enterprise smoke
+        id: ghe-smoke
+        uses: ./.github/actions/contributors-please-action
+        env:
+          GITHUB_REPOSITORY: ${{ env.GHE_TARGET_OWNER }}/${{ env.GHE_TARGET_REPO }}
+          GITHUB_SERVER_URL: ${{ vars.GHE_SERVER_URL }}
+          GITHUB_REF_NAME: main
+        with:
+          pat: ${{ secrets.GHE_CONTRIBUTORS_PLEASE_PAT }}
+          github-server-url: ${{ vars.GHE_SERVER_URL }}
+          github-api-url: ${{ vars.GHE_API_URL }}
+          github-graphql-url: ${{ vars.GHE_GRAPHQL_URL }}
+          mode: check
+          dry-run: "true"
+          bootstrap: "true"
+          output-file: CONTRIBUTORS.md
+          state-file: .contributors.jsonl
+          config-file: .contributors.yml
+
+      - name: Verify GitHub Enterprise smoke output
+        run: |
+          test "${{ steps.ghe-smoke.outputs.token-source }}" = "pat"
+          test -n "${{ steps.ghe-smoke.outputs.committer-login }}"

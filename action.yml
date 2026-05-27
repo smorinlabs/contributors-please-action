@@ -1,0 +1,152 @@
+name: contributors-please
+description: Incremental, path-aware contributor recognition
+author: Steve Morin
+branding:
+  icon: users
+  color: green
+inputs:
+  app-id:
+    description: GitHub App ID. Use with private-key for App mode.
+    required: false
+    default: ''
+  private-key:
+    description: GitHub App private key. Use with app-id for App mode.
+    required: false
+    default: ''
+  pat:
+    description: Personal access token fallback. Used when App credentials are absent.
+    required: false
+    default: ''
+  output-file:
+    description: File the rendered contributor list is written to.
+    required: false
+    default: contributors.md
+  template-file:
+    description: Wrapper template file. Mutually exclusive with header/footer and in-place.
+    required: false
+    default: ''
+  template-placeholder:
+    description: Placeholder marker in template-file.
+    required: false
+    default: '<!-- CONTRIBUTORS -->'
+  header:
+    description: Inline text before the rendered block.
+    required: false
+    default: ''
+  footer:
+    description: Inline text after the rendered block.
+    required: false
+    default: ''
+  in-place:
+    description: Replace content in output-file between in-place markers.
+    required: false
+    default: 'false'
+  in-place-marker-start:
+    description: Start marker for in-place mode.
+    required: false
+    default: '<!-- contributors-please:start -->'
+  in-place-marker-end:
+    description: End marker for in-place mode.
+    required: false
+    default: '<!-- contributors-please:end -->'
+  entry-template:
+    description: Per-contributor entry template.
+    required: false
+    default: ''
+  empty-text:
+    description: Text rendered when no contributors are selected.
+    required: false
+    default: ''
+  columns-per-row:
+    description: Number of contributor entries per row.
+    required: false
+    default: '6'
+  state-file:
+    description: JSONL contributor ledger path.
+    required: false
+    default: .contributors.jsonl
+  config-file:
+    description: Classification config file path.
+    required: false
+    default: .contributors.yml
+  sort:
+    description: Sort mode, one of contributions, alphabetical, or first-seen.
+    required: false
+    default: contributions
+  min-contributions:
+    description: Minimum commit count required for rendering.
+    required: false
+    default: '1'
+  ignore:
+    description: Comma-separated logins to exclude.
+    required: false
+    default: ''
+  unignore:
+    description: Comma-separated logins to include even when auto-excluded.
+    required: false
+    default: ''
+  mode:
+    description: Run mode, one of commit, pull-request, or check.
+    required: false
+    default: commit
+  dry-run:
+    description: Compute outputs without writes or side effects.
+    required: false
+    default: 'false'
+  bootstrap:
+    description: Allow the action to bootstrap missing state in non-interactive mode.
+    required: false
+    default: 'false'
+  commit-message:
+    description: Commit message used when the action creates commits.
+    required: false
+    default: |
+      docs: update contributors
+
+      [skip ci]
+  skip-labeling:
+    description: Suppress contributors-please PR label creation/application.
+    required: false
+    default: 'false'
+  pin-warn-on-stale:
+    description: Warn when pinned records differ from current classification.
+    required: false
+    default: 'true'
+  github-server-url:
+    description: Base URL of the GitHub instance.
+    required: false
+    default: ''
+  github-api-url:
+    description: Override REST API URL.
+    required: false
+    default: ''
+  github-graphql-url:
+    description: Override GraphQL API URL.
+    required: false
+    default: ''
+outputs:
+  changed:
+    description: true if files would be modified by this run.
+  added-logins:
+    description: JSON array of logins added this run.
+  promoted-logins:
+    description: JSON array of logins whose title changed this run.
+  contributors-count:
+    description: Number of contributors in the rendered output after filtering.
+  token-source:
+    description: Token source used by the action, app or pat.
+  committer-login:
+    description: GitHub login configured as the committer for this run.
+  contributors-json:
+    description: JSON array of contributor records after merge.
+  pr-opened:
+    description: true if a pull request was opened or updated.
+  pr-number:
+    description: Pull request number when pr-opened is true.
+  pr-url:
+    description: Pull request HTML URL when pr-opened is true.
+  commit-sha:
+    description: Commit SHA when mode commit creates a commit.
+runs:
+  using: node24
+  main: dist/index.js
