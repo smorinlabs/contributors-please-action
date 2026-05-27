@@ -1,0 +1,6 @@
+node_modules/
+coverage/
+.vitest/
+.npm-cache/
+.deps/
+.DS_Store

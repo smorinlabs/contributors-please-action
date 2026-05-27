@@ -1,0 +1,58 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - v*.*.*
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Checkout local library dependency
+        uses: actions/checkout@v6
+        with:
+          repository: smorinlabs/contributors-please
+          ref: ${{ github.ref_name }}
+          path: .deps/contributors-please
+          token: ${{ secrets.CONTRIBUTORS_PLEASE_LIBRARY_TOKEN || github.token }}
+
+      - name: Link local library dependency
+        run: |
+          rm -rf ../contributors-please
+          ln -s "$PWD/.deps/contributors-please" ../contributors-please
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Verify tag matches package version
+        run: |
+          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+          if [ "v${PACKAGE_VERSION}" != "${GITHUB_REF_NAME}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match package version v${PACKAGE_VERSION}" >&2
+            exit 1
+          fi
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - run: git diff --exit-code -- dist
+
+      - name: Update major version tag
+        run: |
+          if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
+            echo "Skipping major tag update for prerelease ${GITHUB_REF_NAME}"
+            exit 0
+          fi
+
+          MAJOR_VERSION="${GITHUB_REF_NAME#v}"
+          MAJOR_TAG="v${MAJOR_VERSION%%.*}"
+          TARGET_SHA="$(git rev-list -n 1 "${GITHUB_REF_NAME}")"
+          git tag -f "${MAJOR_TAG}" "${TARGET_SHA}"
+          git push origin "refs/tags/${MAJOR_TAG}" --force

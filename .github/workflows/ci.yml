@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Checkout local library dependency
+        uses: actions/checkout@v6
+        with:
+          repository: smorinlabs/contributors-please
+          ref: ${{ vars.CONTRIBUTORS_PLEASE_LIBRARY_REF || 'contributors-please-impl' }}
+          path: .deps/contributors-please
+          token: ${{ secrets.CONTRIBUTORS_PLEASE_LIBRARY_TOKEN || github.token }}
+
+      - name: Link local library dependency
+        run: |
+          rm -rf ../contributors-please
+          ln -s "$PWD/.deps/contributors-please" ../contributors-please
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - run: git diff --exit-code -- dist
