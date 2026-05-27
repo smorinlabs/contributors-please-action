@@ -12,6 +12,8 @@ describe("release workflow", () => {
         verify: {
           permissions?: Record<string, string>;
           steps: Array<{
+            name?: string;
+            uses?: string;
             run?: string;
             with?: Record<string, string | number>;
           }>;
@@ -26,8 +28,10 @@ describe("release workflow", () => {
     });
 
     const steps = workflow.jobs.verify.steps;
-    const dependencyCheckoutStep = steps.find(step =>
-      step.run?.includes("smorinlabs/contributors-please")
+    const dependencyCheckoutStep = steps.find(
+      step =>
+        step.uses === "actions/checkout@v6" &&
+        step.with?.repository === "smorinlabs/contributors-please"
     );
     const dependencyCheckout = steps.indexOf(dependencyCheckoutStep ?? {});
     const setupNode = steps.find(step => step.with?.["node-version"]);
@@ -49,7 +53,11 @@ describe("release workflow", () => {
 
     expect(setupNode?.with).toMatchObject({ "node-version": 24 });
     expect(dependencyCheckout).toBeGreaterThanOrEqual(0);
-    expect(dependencyCheckoutStep?.run).toContain('--branch "$GITHUB_REF_NAME"');
+    expect(dependencyCheckoutStep?.with).toMatchObject({
+      ref: "${{ github.ref_name }}",
+      path: "../contributors-please",
+      token: "${{ secrets.CONTRIBUTORS_PLEASE_LIBRARY_TOKEN || github.token }}",
+    });
     expect(versionCheck).toBeGreaterThan(dependencyCheckout);
     expect(npmCi).toBeGreaterThan(versionCheck);
     expect(npmTest).toBeGreaterThan(npmCi);

@@ -12,7 +12,12 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Checkout local library dependency
-        run: git clone --depth 1 https://github.com/smorinlabs/contributors-please ../contributors-please
+        uses: actions/checkout@v6
+        with:
+          repository: smorinlabs/contributors-please
+          ref: contributors-please-impl
+          path: ../contributors-please
+          token: ${{ secrets.CONTRIBUTORS_PLEASE_LIBRARY_TOKEN || github.token }}
 
       - uses: actions/setup-node@v6
         with:
