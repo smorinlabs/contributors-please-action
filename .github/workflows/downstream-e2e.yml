@@ -1,0 +1,103 @@
+name: Downstream E2E
+
+run-name: downstream E2E ${{ github.event.workflow_run.head_sha || inputs.action_ref || github.sha }}
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      action_ref:
+        description: contributors-please-action ref to test downstream.
+        required: false
+        default: main
+      wait:
+        description: Wait for contributors-please-test to finish.
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  dispatch:
+    name: Dispatch contributors-please-test
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    env:
+      TARGET_REPO: smorinlabs/contributors-please-test
+      TARGET_WORKFLOW: action-downstream-suite.yml
+      GH_TOKEN: ${{ secrets.CONTRIBUTORS_PLEASE_TEST_DISPATCH_TOKEN }}
+      ACTION_REF: ${{ github.event.workflow_run.head_sha || inputs.action_ref || github.sha }}
+      SOURCE_RUN_ID: ${{ github.run_id }}
+      SOURCE_WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id || github.run_id }}
+      WAIT_FOR_RESULT: ${{ github.event_name != 'workflow_dispatch' || inputs.wait }}
+    steps:
+      - name: Verify dispatch token
+        run: |
+          set -euo pipefail
+          test -n "${GH_TOKEN}"
+
+      - name: Dispatch downstream suite
+        run: |
+          set -euo pipefail
+          gh api --method POST "repos/${TARGET_REPO}/dispatches" \
+            -f event_type=contributors-please-action-updated \
+            -f "client_payload[action_ref]=${ACTION_REF}" \
+            -f "client_payload[source_repo]=${GITHUB_REPOSITORY}" \
+            -f "client_payload[source_run_id]=${SOURCE_RUN_ID}" \
+            -f "client_payload[source_workflow_run_id]=${SOURCE_WORKFLOW_RUN_ID}" \
+            -f "client_payload[source_sha]=${ACTION_REF}" \
+            -f "client_payload[source_workflow]=${GITHUB_WORKFLOW}"
+
+          {
+            echo "### Downstream E2E dispatch"
+            echo ""
+            echo "- target repo: ${TARGET_REPO}"
+            echo "- target workflow: ${TARGET_WORKFLOW}"
+            echo "- action ref: ${ACTION_REF}"
+            echo "- source run id: ${SOURCE_RUN_ID}"
+            echo "- source workflow run id: ${SOURCE_WORKFLOW_RUN_ID}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Wait for downstream suite
+        run: |
+          set -euo pipefail
+
+          if [[ "${WAIT_FOR_RESULT}" != "true" ]]; then
+            echo "Skipping downstream wait because wait=false."
+            exit 0
+          fi
+
+          run_id=""
+          for _ in {1..90}; do
+            run_id="$(
+              gh run list \
+                --repo "${TARGET_REPO}" \
+                --workflow "${TARGET_WORKFLOW}" \
+                --limit 50 \
+                --json databaseId,displayTitle,status \
+                --jq ".[] | select(.displayTitle | contains(\"source-run ${SOURCE_RUN_ID}\")) | .databaseId" \
+                | head -n 1
+            )"
+
+            if [[ -n "${run_id}" ]]; then
+              break
+            fi
+
+            sleep 10
+          done
+
+          if [[ -z "${run_id}" ]]; then
+            echo "Could not find downstream suite run for source run ${SOURCE_RUN_ID}" >&2
+            exit 1
+          fi
+
+          echo "- target run: https://github.com/${TARGET_REPO}/actions/runs/${run_id}" >> "$GITHUB_STEP_SUMMARY"
+          gh run watch "${run_id}" --repo "${TARGET_REPO}" --exit-status --interval 15
