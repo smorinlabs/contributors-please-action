@@ -1,15 +1,15 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 
-const file = 'dist/index.js';
-const pattern = /^;\/\/ CONCATENATED MODULE: .*contributors-please\/dist\/lib\.js$/gm;
-const canonical = ';// CONCATENATED MODULE: contributors-please/dist/lib.js';
+const src = readFileSync('dist/index.js', 'utf8');
+const bundledLibraryMarkers = [
+  'CONCATENATED MODULE: contributors-please/dist/lib.js',
+  'CONCATENATED MODULE: contributors-please/src/lib.ts',
+  'CONCATENATED MODULE: ../contributors-please/src/lib.ts',
+];
 
-const src = readFileSync(file, 'utf8');
-const out = src.replace(pattern, canonical);
-
-if (out === src) {
-  console.error('normalize-dist: expected contributors-please/dist/lib.js stamp not found');
-  process.exit(1);
+for (const marker of bundledLibraryMarkers) {
+  if (src.includes(marker)) {
+    console.error(`normalize-dist: action bundle unexpectedly contains ${marker}`);
+    process.exit(1);
+  }
 }
-
-writeFileSync(file, out);

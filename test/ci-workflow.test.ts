@@ -31,6 +31,9 @@ describe("CI workflow", () => {
         step.run?.includes(".deps/contributors-please") &&
         step.run.includes("../contributors-please")
     );
+    const dependencyInstall = steps.findIndex(
+      step => step.run === "npm ci --prefix .deps/contributors-please"
+    );
     const npmCi = steps.findIndex(step => step.run === "npm ci");
 
     expect(dependencyCheckout).toBeGreaterThanOrEqual(0);
@@ -40,6 +43,7 @@ describe("CI workflow", () => {
       token: "${{ secrets.CONTRIBUTORS_PLEASE_LIBRARY_TOKEN || github.token }}",
     });
     expect(dependencyLink).toBeGreaterThan(dependencyCheckout);
-    expect(npmCi).toBeGreaterThan(dependencyLink);
+    expect(dependencyInstall).toBeGreaterThan(dependencyLink);
+    expect(npmCi).toBeGreaterThan(dependencyInstall);
   });
 });

@@ -2,13 +2,11 @@ import * as core from "@actions/core";
 import { execFile } from "node:child_process";
 import { appendFile, readFile } from "node:fs/promises";
 import { promisify } from "node:util";
-import {
-  Contributors,
-  GitHubClient,
-  type RunResult,
-  type CommitResult,
-  type CheckResult,
-  type OpenPullRequestResult,
+import type {
+  RunResult,
+  CommitResult,
+  CheckResult,
+  OpenPullRequestResult,
 } from "contributors-please";
 import {
   createAppToken,
@@ -18,6 +16,19 @@ import {
 import { createProxyFetch } from "./proxy.js";
 
 const execFileAsync = promisify(execFile);
+type ContributorsModule = typeof import("contributors-please");
+type CreateGitHubClient = ContributorsModule["GitHubClient"]["create"];
+type CreateContributors = ContributorsModule["Contributors"]["fromConfigFile"];
+type GitHubClientInstance = Awaited<ReturnType<CreateGitHubClient>>;
+type ContributorsInstance = Awaited<ReturnType<CreateContributors>>;
+let contributorsModulePromise: Promise<ContributorsModule> | undefined;
+
+function loadContributorsModule(): Promise<ContributorsModule> {
+  contributorsModulePromise ??= import(
+    new URL("./contributors-please-lib.js", import.meta.url).href
+  ) as Promise<ContributorsModule>;
+  return contributorsModulePromise;
+}
 
 type CoreLike = Pick<
   typeof core,
@@ -33,8 +44,8 @@ type CoreLike = Pick<
 export interface RunActionOptions {
   core?: CoreLike;
   env?: NodeJS.ProcessEnv;
-  createGitHubClient?: typeof GitHubClient.create;
-  createContributors?: typeof Contributors.fromConfigFile;
+  createGitHubClient?: CreateGitHubClient;
+  createContributors?: CreateContributors;
   createAppToken?: typeof createAppToken;
   configureGitRemote?: (config: GitRemoteConfig) => Promise<void>;
   pushGitRef?: (config: GitPushConfig) => Promise<void>;
@@ -67,9 +78,6 @@ interface GitPushConfig {
 export async function runAction(options: RunActionOptions = {}): Promise<void> {
   const actionCore = options.core ?? core;
   const env = options.env ?? process.env;
-  const createGitHubClient = options.createGitHubClient ?? GitHubClient.create;
-  const createContributors =
-    options.createContributors ?? Contributors.fromConfigFile;
   const mintAppToken = options.createAppToken ?? createAppToken;
   const configureRemote = options.configureGitRemote ?? configureGitRemote;
   const pushRef = options.pushGitRef ?? pushGitRef;
@@ -97,6 +105,14 @@ export async function runAction(options: RunActionOptions = {}): Promise<void> {
     }
     actionCore.setSecret(credentials.token);
     const dryRun = actionCore.getBooleanInput("dry-run");
+    const contributorsModule =
+      options.createGitHubClient && options.createContributors
+        ? undefined
+        : await loadContributorsModule();
+    const createGitHubClient =
+      options.createGitHubClient ?? contributorsModule!.GitHubClient.create;
+    const createContributors =
+      options.createContributors ?? contributorsModule!.Contributors.fromConfigFile;
 
     const github = await createGitHubClient({
       owner,
@@ -353,8 +369,8 @@ function emitOutputs(
 async function dispatchMode(
   coreApi: CoreLike,
   env: NodeJS.ProcessEnv,
-  github: Awaited<ReturnType<typeof GitHubClient.create>>,
-  contributors: Awaited<ReturnType<typeof Contributors.fromConfigFile>>,
+  github: GitHubClientInstance,
+  contributors: ContributorsInstance,
   dryRun: boolean,
   remoteConfig: GitRemoteConfig,
   configureRemote: (config: GitRemoteConfig) => Promise<void>,
@@ -448,7 +464,7 @@ function authenticatedRemoteUrl(config: GitRemoteConfig): string {
 
 async function maybeCommentOnPullRequest(
   env: NodeJS.ProcessEnv,
-  github: Awaited<ReturnType<typeof GitHubClient.create>>,
+  github: GitHubClientInstance,
   diff: string
 ): Promise<void> {
   if (env.GITHUB_EVENT_NAME !== "pull_request" || !env.GITHUB_EVENT_PATH) {

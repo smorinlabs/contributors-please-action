@@ -39,6 +39,9 @@ describe("release workflow", () => {
         step.run?.includes(".deps/contributors-please") &&
         step.run.includes("../contributors-please")
     );
+    const dependencyInstall = steps.findIndex(
+      step => step.run === "npm ci --prefix .deps/contributors-please"
+    );
     const setupNode = steps.find(step => step.with?.["node-version"]);
     const versionCheck = steps.findIndex(
       step =>
@@ -59,13 +62,14 @@ describe("release workflow", () => {
     expect(setupNode?.with).toMatchObject({ "node-version": 24 });
     expect(dependencyCheckout).toBeGreaterThanOrEqual(0);
     expect(dependencyCheckoutStep?.with).toMatchObject({
-      ref: "${{ github.ref_name }}",
+      ref: "${{ vars.CONTRIBUTORS_PLEASE_LIBRARY_REF || 'v1.0.0' }}",
       path: ".deps/contributors-please",
       token: "${{ secrets.CONTRIBUTORS_PLEASE_LIBRARY_TOKEN || github.token }}",
     });
     expect(dependencyLink).toBeGreaterThan(dependencyCheckout);
+    expect(dependencyInstall).toBeGreaterThan(dependencyLink);
     expect(versionCheck).toBeGreaterThan(dependencyCheckout);
-    expect(npmCi).toBeGreaterThan(dependencyLink);
+    expect(npmCi).toBeGreaterThan(dependencyInstall);
     expect(npmCi).toBeGreaterThan(versionCheck);
     expect(npmTest).toBeGreaterThan(npmCi);
     expect(build).toBeGreaterThan(npmTest);

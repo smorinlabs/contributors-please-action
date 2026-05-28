@@ -1,6 +1,6 @@
 {
   "name": "contributors-please-action",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "GitHub Action wrapper for contributors-please",
   "license": "MIT",
@@ -8,7 +8,7 @@
   "main": "dist/index.js",
   "scripts": {
     "clean": "rm -rf dist coverage",
-    "build": "ncc build src/index.ts -o dist && node scripts/normalize-dist.mjs",
+    "build": "rm -rf dist && ncc build src/index.ts -o dist && node scripts/copy-library.mjs && node scripts/normalize-dist.mjs",
     "test": "vitest run",
     "check": "npm test && npm run build && git diff --exit-code -- dist"
   },
@@ -24,7 +24,7 @@
     "@vercel/ncc": "^0.38.4",
     "typescript": "^5.9.2",
     "vitest": "^3.2.4",
-    "yaml": "^2.8.1"
+    "yaml": "^2.9.0"
   },
   "engines": {
     "node": ">=24"
