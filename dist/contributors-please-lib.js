@@ -19914,9 +19914,29 @@ function mergeConfig(raw, overrides) {
         return raw;
     }
     if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+        const rawRecord = raw;
+        const overrideRecord = overrides;
+        if (rawRecord.packages &&
+            typeof rawRecord.packages === "object" &&
+            !Array.isArray(rawRecord.packages)) {
+            const packages = rawRecord.packages;
+            const rootPackage = packages["."] && typeof packages["."] === "object" && !Array.isArray(packages["."])
+                ? packages["."]
+                : {};
+            return {
+                ...rawRecord,
+                packages: {
+                    ...packages,
+                    ".": {
+                        ...rootPackage,
+                        ...overrideRecord,
+                    },
+                },
+            };
+        }
         return {
-            ...raw,
-            ...overrides,
+            ...rawRecord,
+            ...overrideRecord,
         };
     }
     return overrides;

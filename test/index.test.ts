@@ -5,7 +5,10 @@ import { join } from "node:path";
 
 import { runAction } from "../src/index";
 
-function fakeCore(inputs: Record<string, string>) {
+function fakeCore(
+  inputs: Record<string, string>,
+  options: { strictBooleanInputs?: boolean } = {}
+) {
   const outputs: Record<string, unknown> = {};
   const failures: string[] = [];
   const secrets: string[] = [];
@@ -15,7 +18,12 @@ function fakeCore(inputs: Record<string, string>) {
     secrets,
     core: {
       getInput: (name: string) => inputs[name] ?? "",
-      getBooleanInput: (name: string) => (inputs[name] ?? "false") === "true",
+      getBooleanInput: (name: string) => {
+        if (options.strictBooleanInputs && inputs[name] === undefined) {
+          throw new Error(`missing boolean input: ${name}`);
+        }
+        return (inputs[name] ?? "false") === "true";
+      },
       setSecret: (value: string) => {
         secrets.push(value);
       },
@@ -113,6 +121,50 @@ describe("runAction", () => {
         },
       })
     );
+  });
+
+  it("uses direct-entrypoint defaults when boolean inputs are absent", async () => {
+    const { core, failures } = fakeCore(
+      {
+        pat: "pat-token",
+        mode: "commit",
+      },
+      { strictBooleanInputs: true }
+    );
+    const commit = vi.fn().mockResolvedValue({
+      changed: false,
+      addedLogins: [],
+      promotedLogins: [],
+      contributorsCount: 0,
+      contributorsJson: [],
+      proposedStateFile: "",
+      proposedOutputFile: "",
+      warnings: [],
+      commitSha: "",
+    });
+    const createContributors = vi.fn().mockResolvedValue({ commit });
+
+    await runAction({
+      core,
+      env: { GITHUB_REPOSITORY: "smorinlabs/example" },
+      fetch: vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ login: "pat-user", id: 98765 }), {
+          status: 200,
+        })
+      ),
+      createGitHubClient: vi.fn().mockResolvedValue({ serverUrl: "https://github.com" }),
+      createContributors,
+    });
+
+    expect(failures).toEqual([]);
+    expect(createContributors).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        bootstrap: false,
+        dryRun: false,
+      })
+    );
+    expect(commit).toHaveBeenCalled();
   });
 
   it("masks the selected token before write-mode side effects", async () => {
