@@ -25555,32 +25555,6 @@ module.exports = {
 
 /***/ }),
 
-/***/ 433:
-/***/ ((module) => {
-
-function webpackEmptyAsyncContext(req) {
-	// Here Promise.resolve().then() is used instead of new Promise() to prevent
-	// uncaught exception popping up in devtools
-	return Promise.resolve().then(() => {
-		var e = new Error("Cannot find module '" + req + "'");
-		e.code = 'MODULE_NOT_FOUND';
-		throw e;
-	});
-}
-webpackEmptyAsyncContext.keys = () => ([]);
-webpackEmptyAsyncContext.resolve = webpackEmptyAsyncContext;
-webpackEmptyAsyncContext.id = 433;
-module.exports = webpackEmptyAsyncContext;
-
-/***/ }),
-
-/***/ 289:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-module.exports = __nccwpck_require__.p + "cb3213c6f8c7b01b9e6a.js?./contributors-please-lib.js";
-
-/***/ }),
-
 /***/ 2613:
 /***/ ((module) => {
 
@@ -27620,9 +27594,6 @@ function qstring(str) {
 /******/ 	return module.exports;
 /******/ }
 /******/ 
-/******/ // expose the modules object (__webpack_modules__)
-/******/ __nccwpck_require__.m = __webpack_modules__;
-/******/ 
 /************************************************************************/
 /******/ /* webpack/runtime/define property getters */
 /******/ (() => {
@@ -27641,44 +27612,9 @@ function qstring(str) {
 /******/ 	__nccwpck_require__.o = (obj, prop) => (Object.prototype.hasOwnProperty.call(obj, prop))
 /******/ })();
 /******/ 
-/******/ /* webpack/runtime/publicPath */
-/******/ (() => {
-/******/ 	var scriptUrl;
-/******/ 	if (typeof import.meta.url === "string") scriptUrl = import.meta.url
-/******/ 	// When supporting browsers where an automatic publicPath is not supported you must specify an output.publicPath manually via configuration
-/******/ 	// or pass an empty string ("") and set the __webpack_public_path__ variable from your code to use your own logic.
-/******/ 	if (!scriptUrl) throw new Error("Automatic publicPath is not supported in this browser");
-/******/ 	scriptUrl = scriptUrl.replace(/#.*$/, "").replace(/\?.*$/, "").replace(/\/[^\/]+$/, "/");
-/******/ 	__nccwpck_require__.p = scriptUrl;
-/******/ })();
-/******/ 
 /******/ /* webpack/runtime/compat */
 /******/ 
 /******/ if (typeof __nccwpck_require__ !== 'undefined') __nccwpck_require__.ab = new URL('.', import.meta.url).pathname.slice(import.meta.url.match(/^file:\/\/\/\w:/) ? 1 : 0, -1) + "/";
-/******/ 
-/******/ /* webpack/runtime/import chunk loading */
-/******/ (() => {
-/******/ 	__nccwpck_require__.b = new URL("./", import.meta.url);
-/******/ 	
-/******/ 	// object to store loaded and loading chunks
-/******/ 	// undefined = chunk not loaded, null = chunk preloaded/prefetched
-/******/ 	// [resolve, Promise] = chunk loading, 0 = chunk loaded
-/******/ 	var installedChunks = {
-/******/ 		792: 0
-/******/ 	};
-/******/ 	
-/******/ 	// no install chunk
-/******/ 	
-/******/ 	// no chunk on demand loading
-/******/ 	
-/******/ 	// no prefetching
-/******/ 	
-/******/ 	// no preloaded
-/******/ 	
-/******/ 	// no external install chunk
-/******/ 	
-/******/ 	// no on chunks loaded
-/******/ })();
 /******/ 
 /************************************************************************/
 var __webpack_exports__ = {};
@@ -30949,7 +30885,9 @@ function urlFromFetchInput(input) {
 const execFileAsync = (0,external_node_util_.promisify)(external_node_child_process_namespaceObject.execFile);
 let contributorsModulePromise;
 function loadContributorsModule() {
-    contributorsModulePromise ??= __nccwpck_require__(433)(new URL(/* asset import */ __nccwpck_require__(289), __nccwpck_require__.b).href);
+    const dynamicImport = new Function("specifier", "return import(specifier)");
+    const libraryFile = ["contributors-please-lib", "js"].join(".");
+    contributorsModulePromise ??= dynamicImport(new URL(`./${libraryFile}`, import.meta.url).href);
     return contributorsModulePromise;
 }
 async function runAction(options = {}) {
@@ -30978,7 +30916,7 @@ async function runAction(options = {}) {
             return;
         }
         actionCore.setSecret(credentials.token);
-        const dryRun = actionCore.getBooleanInput("dry-run");
+        const dryRun = optionalBooleanInput(actionCore, "dry-run") ?? false;
         const contributorsModule = options.createGitHubClient && options.createContributors
             ? undefined
             : await loadContributorsModule();
@@ -30997,7 +30935,7 @@ async function runAction(options = {}) {
             repoPath: process.cwd(),
             configFile: actionCore.getInput("config-file") || ".contributors.yml",
             configOverrides: actionConfigOverrides(actionCore),
-            bootstrap: actionCore.getBooleanInput("bootstrap"),
+            bootstrap: optionalBooleanInput(actionCore, "bootstrap") ?? false,
             dryRun,
             committerLogin: credentials.login,
             committerEmail: credentials.email,
@@ -31175,7 +31113,7 @@ async function dispatchMode(coreApi, env, github, contributors, dryRun, remoteCo
             body: "Generated by contributors-please.",
             commitMessage,
             label: "contributors-please: pending",
-            skipLabeling: coreApi.getBooleanInput("skip-labeling"),
+            skipLabeling: optionalBooleanInput(coreApi, "skip-labeling") ?? false,
             title: commitMessage.split(/\r?\n/, 1)[0],
         });
         if (dryRun && result.changed) {
