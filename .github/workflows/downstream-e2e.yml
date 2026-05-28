@@ -25,6 +25,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: contributors-please-action-downstream-${{ github.event.workflow_run.head_sha || inputs.action_ref || github.sha }}
+  cancel-in-progress: true
+
 jobs:
   dispatch:
     name: Dispatch contributors-please-test
