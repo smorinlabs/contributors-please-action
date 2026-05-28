@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { readFile } from "node:fs/promises";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 
@@ -32,5 +33,11 @@ describe("committed action bundle", () => {
     expect(exitCode).toBe(1);
     expect(output).toContain("Provide either app-id + private-key, or pat.");
     expect(output).not.toContain("Cannot read properties of undefined");
+  });
+
+  it("does not rewrite the runtime library import as an ncc asset query", async () => {
+    const bundle = await readFile("dist/index.js", "utf8");
+    expect(bundle).not.toContain("?./contributors-please-lib.js");
+    expect(bundle).toContain('["contributors-please-lib", "js"].join(".")');
   });
 });

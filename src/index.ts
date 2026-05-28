@@ -24,9 +24,14 @@ type ContributorsInstance = Awaited<ReturnType<CreateContributors>>;
 let contributorsModulePromise: Promise<ContributorsModule> | undefined;
 
 function loadContributorsModule(): Promise<ContributorsModule> {
-  contributorsModulePromise ??= import(
-    new URL("./contributors-please-lib.js", import.meta.url).href
-  ) as Promise<ContributorsModule>;
+  const dynamicImport = new Function(
+    "specifier",
+    "return import(specifier)"
+  ) as (specifier: string) => Promise<ContributorsModule>;
+  const libraryFile = ["contributors-please-lib", "js"].join(".");
+  contributorsModulePromise ??= dynamicImport(
+    new URL(`./${libraryFile}`, import.meta.url).href
+  );
   return contributorsModulePromise;
 }
 
