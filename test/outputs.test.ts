@@ -35,12 +35,26 @@ describe("action outputs", () => {
     const action = parse(await readFile("action.yml", "utf8")) as {
       inputs: Record<string, { default?: string }>;
     };
+    // Every input forwarded via an optional* helper in src/index.ts must have an
+    // empty default, so the config file drives it when the input is unset.
     const composable = [
+      "output-file",
+      "template-file",
+      "template-placeholder",
+      "header",
+      "footer",
       "in-place",
       "in-place-marker-start",
       "in-place-marker-end",
-      "columns-per-row",
       "entry-template",
+      "empty-text",
+      "columns-per-row",
+      "state-file",
+      "sort",
+      "min-contributions",
+      "ignore",
+      "unignore",
+      "pin-warn-on-stale",
     ];
 
     for (const name of composable) {

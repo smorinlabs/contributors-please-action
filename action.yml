@@ -18,17 +18,17 @@ inputs:
     required: false
     default: ''
   output-file:
-    description: File the rendered contributor list is written to.
+    description: File the rendered contributor list is written to. Unset inherits from config / core default (contributors.md).
     required: false
-    default: contributors.md
+    default: ''
   template-file:
     description: Wrapper template file. Mutually exclusive with header/footer and in-place.
     required: false
     default: ''
   template-placeholder:
-    description: Placeholder marker in template-file.
+    description: Placeholder marker in template-file. Unset inherits from config / core default.
     required: false
-    default: '<!-- CONTRIBUTORS -->'
+    default: ''
   header:
     description: Inline text before the rendered block.
     required: false
@@ -66,21 +66,21 @@ inputs:
     required: false
     default: ''
   state-file:
-    description: JSONL contributor ledger path.
+    description: JSONL contributor ledger path. Unset inherits from config / core default (.contributors.jsonl).
     required: false
-    default: .contributors.jsonl
+    default: ''
   config-file:
     description: Classification config file path.
     required: false
     default: .contributors.yml
   sort:
-    description: Sort mode, one of contributions, alphabetical, or first-seen.
+    description: Sort mode, one of contributions, alphabetical, or first-seen. Unset inherits from config / core default (contributions).
     required: false
-    default: contributions
+    default: ''
   min-contributions:
-    description: Minimum commit count required for rendering.
+    description: Minimum commit count required for rendering. Unset inherits from config / core default (1).
     required: false
-    default: '1'
+    default: ''
   ignore:
     description: Comma-separated logins to exclude.
     required: false
@@ -113,9 +113,9 @@ inputs:
     required: false
     default: 'false'
   pin-warn-on-stale:
-    description: Warn when pinned records differ from current classification.
+    description: Warn when pinned records differ from current classification. Unset inherits from config / core default (true).
     required: false
-    default: 'true'
+    default: ''
   github-server-url:
     description: Base URL of the GitHub instance.
     required: false
