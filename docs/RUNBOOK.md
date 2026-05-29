@@ -6,8 +6,8 @@ The E2E workflow can be run manually, runs nightly, and also runs for
 
 ## Prerequisites
 
-- `contributors-please@1.0.0` is published to npm.
-- `smorinlabs/contributors-please-action@v1.0.1` is tagged and points at a
+- `contributors-please@1.0.1` is published to npm.
+- `smorinlabs/contributors-please-action@v1.0.2` is tagged and points at a
   commit with a reproducible `dist/index.js`; the release workflow has moved
   the major `v1` tag to the same commit for Action consumers.
 - The `smorinlabs/contributors-please-bot` GitHub App is installed on the test

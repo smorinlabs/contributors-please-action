@@ -20351,7 +20351,7 @@ function nextLink(header) {
 }
 
 ;// CONCATENATED MODULE: ./src/version.ts
-const VERSION = "1.0.0";
+const VERSION = "1.0.1";
 
 ;// CONCATENATED MODULE: ./src/lib.ts
 

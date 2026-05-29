@@ -17,7 +17,7 @@ describe("package metadata", () => {
     ) as PackageJson;
 
     expect(pkg.name).toBe("contributors-please-action");
-    expect(pkg.version).toBe("1.0.1");
+    expect(pkg.version).toBe("1.0.2");
     expect(pkg.private).toBe(true);
     expect(pkg.main).toBe("dist/index.js");
     expect(pkg.dependencies).toMatchObject({
