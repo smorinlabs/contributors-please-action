@@ -38,17 +38,19 @@ inputs:
     required: false
     default: ''
   in-place:
-    description: Replace content in output-file between in-place markers.
+    description: >-
+      Replace content in output-file between in-place markers. Leave unset to
+      inherit from the config file (a non-empty default would override it).
     required: false
-    default: 'false'
+    default: ''
   in-place-marker-start:
-    description: Start marker for in-place mode.
+    description: Start marker for in-place mode. Unset inherits from config / core default.
     required: false
-    default: '<!-- contributors-please:start -->'
+    default: ''
   in-place-marker-end:
-    description: End marker for in-place mode.
+    description: End marker for in-place mode. Unset inherits from config / core default.
     required: false
-    default: '<!-- contributors-please:end -->'
+    default: ''
   entry-template:
     description: Per-contributor entry template.
     required: false
@@ -58,9 +60,11 @@ inputs:
     required: false
     default: ''
   columns-per-row:
-    description: Number of contributor entries per row.
+    description: >-
+      Number of contributor entries per row. Unset inherits from the config file
+      (a non-empty default would override it; the core defaults to 6).
     required: false
-    default: '6'
+    default: ''
   state-file:
     description: JSONL contributor ledger path.
     required: false
