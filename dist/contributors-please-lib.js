@@ -16532,7 +16532,13 @@ function splitLines(text) {
 
 // EXTERNAL MODULE: ./node_modules/yaml/dist/index.js
 var dist = __nccwpck_require__(8815);
+// EXTERNAL MODULE: ./node_modules/ajv/dist/2020.js
+var _2020 = __nccwpck_require__(2210);
+;// CONCATENATED MODULE: ./schemas/config.schema.json
+const config_schema_namespaceObject = /*#__PURE__*/JSON.parse('{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"https://raw.githubusercontent.com/smorinlabs/contributors-please/main/schemas/config.schema.json","title":"contributors-please config","type":"object","additionalProperties":false,"properties":{"classifier":{"type":"string","enum":["path"],"default":"path"},"classification":{"$ref":"#/$defs/classification"},"identity_map":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["login","emails"],"properties":{"login":{"type":"string","minLength":1},"emails":{"type":"array","items":{"type":"string","minLength":1}}}}},"no_reply_domain":{"type":"string","minLength":1},"output_file":{"type":"string","minLength":1},"state_file":{"type":"string","minLength":1},"config_file":{"type":"string","minLength":1},"template_file":{"type":"string"},"template_placeholder":{"type":"string"},"header":{"type":"string"},"footer":{"type":"string"},"in_place":{"type":"boolean"},"in_place_marker_start":{"type":"string"},"in_place_marker_end":{"type":"string"},"entry_template":{"type":"string"},"empty_text":{"type":"string"},"columns_per_row":{"type":"integer"},"sort":{"type":"string","enum":["contributions","alphabetical","first-seen"]},"min_contributions":{"type":"integer"},"ignore":{"oneOf":[{"type":"string"},{"type":"array","items":{"type":"string"}}]},"unignore":{"oneOf":[{"type":"string"},{"type":"array","items":{"type":"string"}}]},"pin_warn_on_stale":{"type":"boolean"},"packages":{"type":"object","additionalProperties":{"type":"object"}}},"$defs":{"classification":{"type":"object","additionalProperties":false,"required":["categories","default"],"properties":{"categories":{"type":"array","items":{"$ref":"#/$defs/category"}},"default":{"$ref":"#/$defs/defaultCategory"},"combinations":{"type":"array","items":{"$ref":"#/$defs/combination"},"default":[]},"multi_category_resolution":{"type":"string","enum":["priority","combine"],"default":"priority"}}},"category":{"type":"object","additionalProperties":false,"required":["id","label","paths"],"properties":{"id":{"type":"string","minLength":1},"label":{"type":"string","minLength":1},"emoji":{"type":"string"},"paths":{"type":"array","minItems":1,"items":{"type":"string","minLength":1}}}},"defaultCategory":{"type":"object","additionalProperties":false,"required":["id","label"],"properties":{"id":{"type":"string","minLength":1},"label":{"type":"string","minLength":1},"emoji":{"type":"string"}}},"combination":{"type":"object","additionalProperties":false,"required":["label","when"],"properties":{"id":{"type":"string","minLength":1},"label":{"type":"string","minLength":1},"emoji":{"type":"string"},"when":{"type":"array","minItems":1,"items":{"type":"string","minLength":1}}}}}}');
 ;// CONCATENATED MODULE: ./src/engine/config.ts
+
+
 const DEFAULT_CLASSIFICATION = {
     categories: [
         {
@@ -16570,8 +16576,31 @@ class ConfigError extends Error {
         this.name = "ConfigError";
     }
 }
+let cachedConfigValidator;
+// Reject unknown / misplaced config keys at load time. Other shape issues
+// (classifier enum, value types, wrapper-mode exclusivity) keep their curated
+// messages from the checks below, so we surface only additionalProperties
+// violations here.
+function validateConfigSchema(record) {
+    cachedConfigValidator ??= new _2020.Ajv2020({ allErrors: true }).compile(config_schema_namespaceObject);
+    if (cachedConfigValidator(record)) {
+        return;
+    }
+    const unknownKeys = (cachedConfigValidator.errors ?? [])
+        .filter((error) => error.keyword === "additionalProperties")
+        .map((error) => {
+        const key = error.params
+            .additionalProperty;
+        return `${error.instancePath || ""}/${String(key)}`;
+    });
+    if (unknownKeys.length > 0) {
+        throw new ConfigError(`Unknown config key(s): ${unknownKeys.join(", ")}. ` +
+            "Remove them or check placement against schemas/config.schema.json.");
+    }
+}
 function normalizeConfig(raw = {}) {
     const record = asRecord(raw);
+    validateConfigSchema(record);
     const root = normalizeRootPackage(record);
     const classifier = normalizeClassifier(root.classifier);
     const classification = normalizeClassification(root.classification);
@@ -19497,8 +19526,6 @@ function countOccurrences(content, marker) {
     return content.split(marker).length - 1;
 }
 
-// EXTERNAL MODULE: ./node_modules/ajv/dist/2020.js
-var _2020 = __nccwpck_require__(2210);
 ;// CONCATENATED MODULE: ./schemas/state.schema.json
 const state_schema_namespaceObject = /*#__PURE__*/JSON.parse('{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"https://raw.githubusercontent.com/smorinlabs/contributors-please/main/schemas/state.schema.json","title":"contributors-please state record","type":"object","additionalProperties":false,"required":["login","name","profile","avatar","source","pinned","categories","title","last_updated"],"allOf":[{"if":{"properties":{"source":{"const":"commit"}},"required":["source"]},"then":{"required":["commits","first_seen"]}}],"properties":{"login":{"type":"string","minLength":1},"name":{"type":"string"},"profile":{"type":"string","minLength":1},"avatar":{"type":"string"},"source":{"type":"string","enum":["commit","declared"]},"pinned":{"type":"boolean"},"categories":{"type":"array","items":{"type":"string"}},"title":{"type":"string"},"emoji":{"type":"string"},"commits":{"type":"integer","minimum":0},"first_seen":{"type":"string","format":"date"},"last_updated":{"type":"string","format":"date"}}}');
 ;// CONCATENATED MODULE: ./src/engine/state.ts
@@ -20351,7 +20378,7 @@ function nextLink(header) {
 }
 
 ;// CONCATENATED MODULE: ./src/version.ts
-const VERSION = "1.0.1";
+const VERSION = "1.0.2";
 
 ;// CONCATENATED MODULE: ./src/lib.ts
 
