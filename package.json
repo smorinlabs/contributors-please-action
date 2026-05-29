@@ -1,6 +1,6 @@
 {
   "name": "contributors-please-action",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "private": true,
   "description": "GitHub Action wrapper for contributors-please",
   "license": "MIT",
