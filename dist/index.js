@@ -31166,8 +31166,10 @@ async function pushGitRef(config) {
     try {
         await execFileAsync("git", ["push", "origin", `HEAD:${config.branch}`]);
     }
-    catch {
-        throw new Error("Failed to push contributors-please commit.");
+    catch (error) {
+        const stderr = error.stderr?.trim();
+        const detail = stderr || (error instanceof Error ? error.message : String(error));
+        throw new Error(`Failed to push contributors-please commit: ${detail}`);
     }
 }
 function authenticatedRemoteUrl(config) {

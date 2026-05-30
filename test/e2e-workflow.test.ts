@@ -32,12 +32,14 @@ describe("E2E workflow", () => {
     const steps = workflow.jobs["scratch-repo"].steps;
     const stepNames = steps.map(step => step.name);
     const commitMode = steps.find(
-      step => step.name === "Exercise commit mode with PAT"
+      step => step.name === "Exercise commit mode (App or PAT)"
     );
 
+    // App-preferred with automatic PAT fallback (configured with either).
     expect(commitMode?.with).toMatchObject({
       mode: "commit",
-      pat: "${{ secrets.CONTRIBUTORS_PLEASE_PAT }}",
+      "app-id": "${{ secrets.CONTRIBUTORS_PLEASE_APP_ID }}",
+      pat: "${{ secrets.CONTRIBUTORS_PLEASE_APP_ID == '' && secrets.CONTRIBUTORS_PLEASE_PAT || '' }}",
     });
     expect(commitMode?.with).not.toHaveProperty("dry-run");
 
