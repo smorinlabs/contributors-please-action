@@ -453,8 +453,10 @@ async function configureGitRemote(config: GitRemoteConfig): Promise<void> {
 async function pushGitRef(config: GitPushConfig): Promise<void> {
   try {
     await execFileAsync("git", ["push", "origin", `HEAD:${config.branch}`]);
-  } catch {
-    throw new Error("Failed to push contributors-please commit.");
+  } catch (error) {
+    const stderr = (error as { stderr?: string }).stderr?.trim();
+    const detail = stderr || (error instanceof Error ? error.message : String(error));
+    throw new Error(`Failed to push contributors-please commit: ${detail}`);
   }
 }
 
