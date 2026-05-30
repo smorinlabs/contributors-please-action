@@ -32,11 +32,9 @@ jobs:
         env:
           APP_ID: ${{ secrets.CONTRIBUTORS_PLEASE_APP_ID }}
           PRIVATE_KEY: ${{ secrets.CONTRIBUTORS_PLEASE_PRIVATE_KEY }}
-          PAT: ${{ secrets.CONTRIBUTORS_PLEASE_PAT }}
         run: |
           test -n "$APP_ID"
           test -n "$PRIVATE_KEY"
-          test -n "$PAT"
 
       - name: Mint checkout App token
         id: app-token
@@ -72,14 +70,15 @@ jobs:
             commit -m "test: contributors-please e2e ${GITHUB_RUN_ID}"
           git push origin HEAD:main
 
-      - name: Exercise commit mode with PAT
+      - name: Exercise commit mode with App token
         id: commit-mode
         uses: ./.github/actions/contributors-please-action
         env:
           GITHUB_REPOSITORY: ${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }}
           GITHUB_REF_NAME: main
         with:
-          pat: ${{ secrets.CONTRIBUTORS_PLEASE_PAT }}
+          app-id: ${{ secrets.CONTRIBUTORS_PLEASE_APP_ID }}
+          private-key: ${{ secrets.CONTRIBUTORS_PLEASE_PRIVATE_KEY }}
           mode: commit
           bootstrap: true
           output-file: CONTRIBUTORS.md
@@ -88,7 +87,7 @@ jobs:
 
       - name: Verify commit mode output
         run: |
-          test "${{ steps.commit-mode.outputs.token-source }}" = "pat"
+          test "${{ steps.commit-mode.outputs.token-source }}" = "app"
           test "${{ steps.commit-mode.outputs.changed }}" = "true"
           test -n "${{ steps.commit-mode.outputs.commit-sha }}"
 
@@ -185,14 +184,15 @@ jobs:
             ' \
             | grep '^true$'
 
-      - name: Exercise idempotent check mode with PAT
+      - name: Exercise idempotent check mode with App token
         id: check-mode
         uses: ./.github/actions/contributors-please-action
         env:
           GITHUB_REPOSITORY: ${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }}
           GITHUB_REF_NAME: main
         with:
-          pat: ${{ secrets.CONTRIBUTORS_PLEASE_PAT }}
+          app-id: ${{ secrets.CONTRIBUTORS_PLEASE_APP_ID }}
+          private-key: ${{ secrets.CONTRIBUTORS_PLEASE_PRIVATE_KEY }}
           mode: check
           dry-run: true
           output-file: CONTRIBUTORS.md
@@ -201,7 +201,7 @@ jobs:
 
       - name: Verify check mode output
         run: |
-          test "${{ steps.check-mode.outputs.token-source }}" = "pat"
+          test "${{ steps.check-mode.outputs.token-source }}" = "app"
           test "${{ steps.check-mode.outputs.changed }}" = "false"
 
   github-enterprise-smoke:
