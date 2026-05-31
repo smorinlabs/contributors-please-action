@@ -76,8 +76,8 @@ jobs:
           printf '# E2E %s\n' "$GITHUB_RUN_ID" > "docs/e2e-${GITHUB_RUN_ID}.md"
           printf 'def test_e2e_%s():\n    assert True\n' "$GITHUB_RUN_ID" > "tests/test_e2e_${GITHUB_RUN_ID}.py"
           git add src docs tests
-          git -c user.name="contributors-please e2e" \
-            -c user.email="contributors-please-e2e@users.noreply.github.com" \
+          git -c user.name="smorin" \
+            -c user.email="smorin@users.noreply.github.com" \
             commit -m "test: contributors-please e2e ${GITHUB_RUN_ID}"
           git push origin HEAD:main
 
@@ -109,8 +109,8 @@ jobs:
           pr_path="src/e2e-pr-${GITHUB_RUN_ID}.py"
           printf 'print("e2e pr %s")\n' "$GITHUB_RUN_ID" > "$pr_path"
           git add src
-          git -c user.name="contributors-please e2e" \
-            -c user.email="contributors-please-e2e@users.noreply.github.com" \
+          git -c user.name="smorin" \
+            -c user.email="smorin@users.noreply.github.com" \
             commit -m "test: contributors-please pr ${GITHUB_RUN_ID}"
           git push origin HEAD:main
 
@@ -159,8 +159,8 @@ jobs:
           reapply_path="docs/e2e-reapply-${GITHUB_RUN_ID}.md"
           printf '# E2E reapply %s\n' "$GITHUB_RUN_ID" > "$reapply_path"
           git add docs
-          git -c user.name="contributors-please e2e" \
-            -c user.email="contributors-please-e2e@users.noreply.github.com" \
+          git -c user.name="smorin" \
+            -c user.email="smorin@users.noreply.github.com" \
             commit -m "test: contributors-please label reapply ${GITHUB_RUN_ID}"
           git push origin HEAD:main
 
