@@ -128,6 +128,19 @@ inputs:
     description: Override GraphQL API URL.
     required: false
     default: ''
+  repository:
+    description: >-
+      owner/repo to operate on. Defaults to GITHUB_REPOSITORY. Use this to
+      target a repository other than the one the workflow runs in (GITHUB_*
+      env vars are reserved and cannot be overridden via `env:`).
+    required: false
+    default: ''
+  branch:
+    description: >-
+      Branch to commit to / base pull requests on. Defaults to GITHUB_REF_NAME,
+      then `main`.
+    required: false
+    default: ''
 outputs:
   changed:
     description: true if files would be modified by this run.

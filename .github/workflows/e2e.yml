@@ -27,19 +27,28 @@ jobs:
       TARGET_OWNER: ${{ inputs.target-owner || 'smorinlabs' }}
       TARGET_REPO: ${{ inputs.target-repo || 'contributors-please-e2e' }}
       ACTION_PATH: .github/actions/contributors-please-action
+      # The action accepts EITHER a GitHub App (app-id + private-key) OR a PAT.
+      # This suite auto-selects whichever is configured: App preferred, PAT
+      # fallback (matching the action's own resolveCredentials order).
+      HAS_APP: ${{ secrets.CONTRIBUTORS_PLEASE_APP_ID != '' && secrets.CONTRIBUTORS_PLEASE_PRIVATE_KEY != '' }}
+      EXPECTED_TOKEN_SOURCE: ${{ (secrets.CONTRIBUTORS_PLEASE_APP_ID != '' && secrets.CONTRIBUTORS_PLEASE_PRIVATE_KEY != '') && 'app' || 'pat' }}
     steps:
-      - name: Verify required secrets
+      - name: Verify a credential mechanism is configured
         env:
           APP_ID: ${{ secrets.CONTRIBUTORS_PLEASE_APP_ID }}
           PRIVATE_KEY: ${{ secrets.CONTRIBUTORS_PLEASE_PRIVATE_KEY }}
           PAT: ${{ secrets.CONTRIBUTORS_PLEASE_PAT }}
         run: |
-          test -n "$APP_ID"
-          test -n "$PRIVATE_KEY"
-          test -n "$PAT"
+          if { [ -n "$APP_ID" ] && [ -n "$PRIVATE_KEY" ]; } || [ -n "$PAT" ]; then
+            echo "Credential mechanism present; this run will use: ${EXPECTED_TOKEN_SOURCE}"
+          else
+            echo "Configure either CONTRIBUTORS_PLEASE_APP_ID + CONTRIBUTORS_PLEASE_PRIVATE_KEY, or CONTRIBUTORS_PLEASE_PAT." >&2
+            exit 1
+          fi
 
       - name: Mint checkout App token
         id: app-token
+        if: ${{ env.HAS_APP == 'true' }}
         uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ secrets.CONTRIBUTORS_PLEASE_APP_ID }}
@@ -51,7 +60,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: ${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }}
-          token: ${{ steps.app-token.outputs.token }}
+          token: ${{ steps.app-token.outputs.token || secrets.CONTRIBUTORS_PLEASE_PAT }}
           ref: main
           fetch-depth: 0
 
@@ -72,14 +81,15 @@ jobs:
             commit -m "test: contributors-please e2e ${GITHUB_RUN_ID}"
           git push origin HEAD:main
 
-      - name: Exercise commit mode with PAT
+      - name: Exercise commit mode (App or PAT)
         id: commit-mode
         uses: ./.github/actions/contributors-please-action
-        env:
-          GITHUB_REPOSITORY: ${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }}
-          GITHUB_REF_NAME: main
         with:
-          pat: ${{ secrets.CONTRIBUTORS_PLEASE_PAT }}
+          repository: ${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }}
+          branch: main
+          app-id: ${{ secrets.CONTRIBUTORS_PLEASE_APP_ID }}
+          private-key: ${{ secrets.CONTRIBUTORS_PLEASE_PRIVATE_KEY }}
+          pat: ${{ secrets.CONTRIBUTORS_PLEASE_APP_ID == '' && secrets.CONTRIBUTORS_PLEASE_PAT || '' }}
           mode: commit
           bootstrap: true
           output-file: CONTRIBUTORS.md
@@ -88,7 +98,7 @@ jobs:
 
       - name: Verify commit mode output
         run: |
-          test "${{ steps.commit-mode.outputs.token-source }}" = "pat"
+          test "${{ steps.commit-mode.outputs.token-source }}" = "$EXPECTED_TOKEN_SOURCE"
           test "${{ steps.commit-mode.outputs.changed }}" = "true"
           test -n "${{ steps.commit-mode.outputs.commit-sha }}"
 
@@ -107,12 +117,12 @@ jobs:
       - name: Exercise pull-request mode with App token
         id: pull-request-mode
         uses: ./.github/actions/contributors-please-action
-        env:
-          GITHUB_REPOSITORY: ${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }}
-          GITHUB_REF_NAME: main
         with:
+          repository: ${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }}
+          branch: main
           app-id: ${{ secrets.CONTRIBUTORS_PLEASE_APP_ID }}
           private-key: ${{ secrets.CONTRIBUTORS_PLEASE_PRIVATE_KEY }}
+          pat: ${{ secrets.CONTRIBUTORS_PLEASE_APP_ID == '' && secrets.CONTRIBUTORS_PLEASE_PAT || '' }}
           mode: pull-request
           bootstrap: true
           output-file: CONTRIBUTORS.md
@@ -121,7 +131,7 @@ jobs:
 
       - name: Verify pull request and label
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.CONTRIBUTORS_PLEASE_PAT }}
           PR_NUMBER: ${{ steps.pull-request-mode.outputs.pr-number }}
         run: |
           test -n "$PR_NUMBER"
@@ -135,7 +145,7 @@ jobs:
 
       - name: Remove pending label before re-apply
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.CONTRIBUTORS_PLEASE_PAT }}
           PR_NUMBER: ${{ steps.pull-request-mode.outputs.pr-number }}
         run: |
           gh pr edit "$PR_NUMBER" \
@@ -157,12 +167,12 @@ jobs:
       - name: Re-apply pull request label with App token
         id: reapply-label-mode
         uses: ./.github/actions/contributors-please-action
-        env:
-          GITHUB_REPOSITORY: ${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }}
-          GITHUB_REF_NAME: main
         with:
+          repository: ${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }}
+          branch: main
           app-id: ${{ secrets.CONTRIBUTORS_PLEASE_APP_ID }}
           private-key: ${{ secrets.CONTRIBUTORS_PLEASE_PRIVATE_KEY }}
+          pat: ${{ secrets.CONTRIBUTORS_PLEASE_APP_ID == '' && secrets.CONTRIBUTORS_PLEASE_PAT || '' }}
           mode: pull-request
           bootstrap: true
           output-file: CONTRIBUTORS.md
@@ -171,7 +181,7 @@ jobs:
 
       - name: Verify label was re-applied
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.CONTRIBUTORS_PLEASE_PAT }}
           PR_NUMBER: ${{ steps.reapply-label-mode.outputs.pr-number }}
         run: |
           test "$PR_NUMBER" = "${{ steps.pull-request-mode.outputs.pr-number }}"
@@ -185,14 +195,15 @@ jobs:
             ' \
             | grep '^true$'
 
-      - name: Exercise idempotent check mode with PAT
+      - name: Exercise idempotent check mode (App or PAT)
         id: check-mode
         uses: ./.github/actions/contributors-please-action
-        env:
-          GITHUB_REPOSITORY: ${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }}
-          GITHUB_REF_NAME: main
         with:
-          pat: ${{ secrets.CONTRIBUTORS_PLEASE_PAT }}
+          repository: ${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }}
+          branch: main
+          app-id: ${{ secrets.CONTRIBUTORS_PLEASE_APP_ID }}
+          private-key: ${{ secrets.CONTRIBUTORS_PLEASE_PRIVATE_KEY }}
+          pat: ${{ secrets.CONTRIBUTORS_PLEASE_APP_ID == '' && secrets.CONTRIBUTORS_PLEASE_PAT || '' }}
           mode: check
           dry-run: true
           output-file: CONTRIBUTORS.md
@@ -201,7 +212,7 @@ jobs:
 
       - name: Verify check mode output
         run: |
-          test "${{ steps.check-mode.outputs.token-source }}" = "pat"
+          test "${{ steps.check-mode.outputs.token-source }}" = "$EXPECTED_TOKEN_SOURCE"
           test "${{ steps.check-mode.outputs.changed }}" = "false"
 
   github-enterprise-smoke:
