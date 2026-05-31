@@ -69,6 +69,20 @@ jobs:
         with:
           path: ${{ env.ACTION_PATH }}
 
+      - name: Reset scratch repository contributor branch
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.CONTRIBUTORS_PLEASE_PAT }}
+        run: |
+          # Idempotency across runs and auth modes: the action keys its branch
+          # overwrite guard off the active token's committer login, so a branch
+          # left by a different committer (e.g. a prior PAT-mode run committing
+          # as the token user) blocks the next App-mode run. Deleting the branch
+          # (which also closes its PR) resets the scratch repo to a clean slate.
+          gh api -X DELETE \
+            "repos/${TARGET_OWNER}/${TARGET_REPO}/git/refs/heads/contributors-please/update" \
+            && echo "deleted stale contributors-please/update branch" \
+            || echo "no stale contributors-please/update branch to delete"
+
       - name: Prepare synthetic contributor commit
         run: |
           mkdir -p src docs tests
