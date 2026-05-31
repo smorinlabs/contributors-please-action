@@ -84,10 +84,9 @@ jobs:
       - name: Exercise commit mode (App or PAT)
         id: commit-mode
         uses: ./.github/actions/contributors-please-action
-        env:
-          GITHUB_REPOSITORY: ${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }}
-          GITHUB_REF_NAME: main
         with:
+          repository: ${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }}
+          branch: main
           app-id: ${{ secrets.CONTRIBUTORS_PLEASE_APP_ID }}
           private-key: ${{ secrets.CONTRIBUTORS_PLEASE_PRIVATE_KEY }}
           pat: ${{ secrets.CONTRIBUTORS_PLEASE_APP_ID == '' && secrets.CONTRIBUTORS_PLEASE_PAT || '' }}
@@ -118,10 +117,9 @@ jobs:
       - name: Exercise pull-request mode with App token
         id: pull-request-mode
         uses: ./.github/actions/contributors-please-action
-        env:
-          GITHUB_REPOSITORY: ${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }}
-          GITHUB_REF_NAME: main
         with:
+          repository: ${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }}
+          branch: main
           app-id: ${{ secrets.CONTRIBUTORS_PLEASE_APP_ID }}
           private-key: ${{ secrets.CONTRIBUTORS_PLEASE_PRIVATE_KEY }}
           pat: ${{ secrets.CONTRIBUTORS_PLEASE_APP_ID == '' && secrets.CONTRIBUTORS_PLEASE_PAT || '' }}
@@ -169,10 +167,9 @@ jobs:
       - name: Re-apply pull request label with App token
         id: reapply-label-mode
         uses: ./.github/actions/contributors-please-action
-        env:
-          GITHUB_REPOSITORY: ${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }}
-          GITHUB_REF_NAME: main
         with:
+          repository: ${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }}
+          branch: main
           app-id: ${{ secrets.CONTRIBUTORS_PLEASE_APP_ID }}
           private-key: ${{ secrets.CONTRIBUTORS_PLEASE_PRIVATE_KEY }}
           pat: ${{ secrets.CONTRIBUTORS_PLEASE_APP_ID == '' && secrets.CONTRIBUTORS_PLEASE_PAT || '' }}
@@ -201,10 +198,9 @@ jobs:
       - name: Exercise idempotent check mode (App or PAT)
         id: check-mode
         uses: ./.github/actions/contributors-please-action
-        env:
-          GITHUB_REPOSITORY: ${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }}
-          GITHUB_REF_NAME: main
         with:
+          repository: ${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }}
+          branch: main
           app-id: ${{ secrets.CONTRIBUTORS_PLEASE_APP_ID }}
           private-key: ${{ secrets.CONTRIBUTORS_PLEASE_PRIVATE_KEY }}
           pat: ${{ secrets.CONTRIBUTORS_PLEASE_APP_ID == '' && secrets.CONTRIBUTORS_PLEASE_PAT || '' }}
