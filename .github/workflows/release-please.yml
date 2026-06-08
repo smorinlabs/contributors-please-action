@@ -62,3 +62,66 @@ jobs:
           token: ${{ steps.app-token.outputs.token || secrets.RELEASE_PLEASE_APP_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+  # sync-dist job. Mirrors py-launch-blueprint's sync-uv-lock pattern.
+  # Pre-empts `git diff --exit-code -- dist` failures on release PRs: the repo
+  # ships a committed bundle at dist/contributors-please-lib.js (enforced via
+  # `npm run check`), so any release PR that incidentally affects bundled
+  # content (e.g. version-bearing strings baked into the bundle, dependency
+  # graph shifts) would otherwise fail CI and require a manual
+  # `npm run build && git push` from the release author. This job rebuilds and
+  # commits dist/ back to the release PR branch automatically.
+  sync-dist:
+    name: sync-dist
+    needs: release-please
+    if: ${{ needs.release-please.outputs.pr != '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      RP_APP_ID: ${{ secrets.RELEASE_PLEASE_APP_ID }}
+    steps:
+      # Mint a fresh installation token from the same App (a separate token —
+      # steps don't cross jobs) so the dist sync commit pushed to the release
+      # PR branch also triggers its CI checks.
+      - name: Mint release-please app token
+        id: app-token
+        if: ${{ env.RP_APP_ID != '' }}
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.RELEASE_PLEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_PLEASE_PRIVATE_KEY }}
+
+      - name: Checkout release PR branch
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ fromJson(needs.release-please.outputs.pr).headBranchName }}
+          token: ${{ steps.app-token.outputs.token || secrets.RELEASE_PLEASE_APP_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build dist bundle
+        run: npm run build
+
+      - name: Commit if changed
+        env:
+          GIT_AUTHOR_NAME: github-actions[bot]
+          GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: github-actions[bot]
+          GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+        run: |
+          if ! git diff --quiet -- dist; then
+            git add dist
+            git commit -m "chore: sync dist"
+            git push
+          else
+            echo "dist already in sync"
+          fi
