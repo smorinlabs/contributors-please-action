@@ -7,9 +7,15 @@
 # workflows (release.yml) — GITHUB_TOKEN is intentionally NOT used as a
 # fallback, since it never triggers downstream workflows and may be blocked
 # from opening PRs by org policy:
-#   1. GitHub App (preferred): set RELEASE_PLEASE_APP_ID + RELEASE_PLEASE_PRIVATE_KEY
-#      (App with Contents + Pull requests: write); the job mints an installation
-#      token from them.
+#   1. GitHub App (preferred): set RELEASE_PLEASE_CLIENT_ID (preferred,
+#      e.g. "Iv23liA..." from the App's General settings page) OR the
+#      deprecated RELEASE_PLEASE_APP_ID (numeric, legacy fallback) +
+#      RELEASE_PLEASE_PRIVATE_KEY (App with Contents + Pull requests: write);
+#      the job mints an installation token from them. The `app-id` input to
+#      actions/create-github-app-token@v3 is deprecated in favor of `client-id`;
+#      both code paths are kept here so the workflow keeps working until the
+#      new RELEASE_PLEASE_CLIENT_ID secret is configured. Once it is set the
+#      app-id fallback step is skipped and the deprecation warning goes away.
 #   2. Fallback PAT: set RELEASE_PLEASE_APP_TOKEN (fine-grained PAT, Contents +
 #      Pull requests: write).
 # See smorinlabs/py-launch-blueprint's RELEASE.md for App setup. With neither
@@ -35,18 +41,30 @@ jobs:
       contents: write
       pull-requests: write
     env:
-      # Surfaced so the app-token step's `if:` can test it (secrets are not
+      # Surfaced so the app-token steps' `if:` can test them (secrets are not
       # available directly in `if:` conditions). Empty unless the App is set up.
+      RP_CLIENT_ID: ${{ secrets.RELEASE_PLEASE_CLIENT_ID }}
       RP_APP_ID: ${{ secrets.RELEASE_PLEASE_APP_ID }}
     outputs:
       release_created: ${{ steps.rp.outputs.release_created }}
       pr: ${{ steps.rp.outputs.pr }}
     steps:
-      # Mint a GitHub App installation token when the App is configured, so the
-      # release PR/tag triggers downstream workflows. Skipped otherwise.
-      - name: Mint release-please app token
-        id: app-token
-        if: ${{ env.RP_APP_ID != '' }}
+      # Preferred path: mint via the new `client-id` input. Runs when
+      # RELEASE_PLEASE_CLIENT_ID is configured.
+      - name: Mint release-please app token (client-id)
+        id: app-token-client
+        if: ${{ env.RP_CLIENT_ID != '' }}
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.RELEASE_PLEASE_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_PLEASE_PRIVATE_KEY }}
+
+      # Backward-compat path: mint via the deprecated `app-id` input. Only
+      # runs when the new RELEASE_PLEASE_CLIENT_ID secret is not yet set,
+      # to avoid triggering the v3 deprecation warning post-migration.
+      - name: Mint release-please app token (app-id, deprecated)
+        id: app-token-app
+        if: ${{ env.RP_CLIENT_ID == '' && env.RP_APP_ID != '' }}
         uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ secrets.RELEASE_PLEASE_APP_ID }}
@@ -56,10 +74,11 @@ jobs:
         id: rp
         uses: googleapis/release-please-action@v5.0.0
         with:
-          # Minted App installation token (preferred) or the RELEASE_PLEASE_APP_TOKEN
-          # PAT — both open PRs and trigger downstream workflows. See RELEASE.md
-          # in smorinlabs/py-launch-blueprint.
-          token: ${{ steps.app-token.outputs.token || secrets.RELEASE_PLEASE_APP_TOKEN }}
+          # Minted App installation token (preferred — either client-id or
+          # the deprecated app-id path) or the RELEASE_PLEASE_APP_TOKEN PAT —
+          # all three open PRs and trigger downstream workflows. See
+          # RELEASE.md in smorinlabs/py-launch-blueprint.
+          token: ${{ steps.app-token-client.outputs.token || steps.app-token-app.outputs.token || secrets.RELEASE_PLEASE_APP_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
@@ -80,14 +99,24 @@ jobs:
       contents: write
       pull-requests: write
     env:
+      RP_CLIENT_ID: ${{ secrets.RELEASE_PLEASE_CLIENT_ID }}
       RP_APP_ID: ${{ secrets.RELEASE_PLEASE_APP_ID }}
     steps:
       # Mint a fresh installation token from the same App (a separate token —
       # steps don't cross jobs) so the dist sync commit pushed to the release
-      # PR branch also triggers its CI checks.
-      - name: Mint release-please app token
-        id: app-token
-        if: ${{ env.RP_APP_ID != '' }}
+      # PR branch also triggers its CI checks. Same two-step backward-compat
+      # pattern as the release-please job above.
+      - name: Mint release-please app token (client-id)
+        id: app-token-client
+        if: ${{ env.RP_CLIENT_ID != '' }}
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.RELEASE_PLEASE_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_PLEASE_PRIVATE_KEY }}
+
+      - name: Mint release-please app token (app-id, deprecated)
+        id: app-token-app
+        if: ${{ env.RP_CLIENT_ID == '' && env.RP_APP_ID != '' }}
         uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ secrets.RELEASE_PLEASE_APP_ID }}
@@ -97,7 +126,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           ref: ${{ fromJson(needs.release-please.outputs.pr).headBranchName }}
-          token: ${{ steps.app-token.outputs.token || secrets.RELEASE_PLEASE_APP_TOKEN }}
+          token: ${{ steps.app-token-client.outputs.token || steps.app-token-app.outputs.token || secrets.RELEASE_PLEASE_APP_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
