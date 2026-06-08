@@ -91,6 +91,25 @@ npx contributors-please@1 init \
   --config-file .contributors.yml
 ```
 
+### Configuration source policy
+
+The Action enforces a single source of truth for each setting:
+
+- `.contributors.yml` owns **project configuration** — how contributor pages
+  look and how contributors are classified. This includes `in_place` (and its
+  marker pair), `columns_per_row`, `entry_template`, `header`, `footer`,
+  `template_file`, `template_placeholder`, `empty_text`, `sort`,
+  `min_contributions`, `pin_warn_on_stale`, `ignore`, `unignore`,
+  `classification`, and `identity_map`.
+- Workflow inputs own **operational configuration** — how the Action runs in
+  CI. This includes paths (`output-file`, `state-file`, `config-file`),
+  execution `mode`, `dry-run`, branch and commit metadata, and credentials.
+
+If any *config-file-only* key (the list above) is set in both
+`.contributors.yml` and the workflow inputs, the Action fails fast with a
+`ConfigError` naming each conflicting key and both source values — even when
+the values agree. Remove the value from one source before re-running.
+
 ## GitHub Enterprise And Proxies
 
 For GitHub Enterprise, set `github-server-url` when the default

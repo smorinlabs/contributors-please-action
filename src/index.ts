@@ -1,7 +1,9 @@
 import * as core from "@actions/core";
 import { execFile } from "node:child_process";
 import { appendFile, readFile } from "node:fs/promises";
+import { resolve as resolvePath } from "node:path";
 import { promisify } from "node:util";
+import { parse as parseYaml } from "yaml";
 import type {
   RunResult,
   CommitResult,
@@ -132,10 +134,18 @@ export async function runAction(options: RunActionOptions = {}): Promise<void> {
       graphqlUrl: actionCore.getInput("github-graphql-url") || undefined,
       fetch: fetchImpl,
     });
+    const configFile =
+      actionCore.getInput("config-file") || ".contributors.yml";
+    const configOverrides = actionConfigOverrides(actionCore);
+    const yamlRecord = await readYamlConfigRecord(
+      resolvePath(process.cwd(), configFile)
+    );
+    assertNoConflicts(configOverrides, yamlRecord, configFile);
+
     const contributors = await createContributors(github, {
       repoPath: process.cwd(),
-      configFile: actionCore.getInput("config-file") || ".contributors.yml",
-      configOverrides: actionConfigOverrides(actionCore),
+      configFile,
+      configOverrides,
       bootstrap: optionalBooleanInput(actionCore, "bootstrap") ?? false,
       dryRun,
       committerLogin: credentials.login,
@@ -172,6 +182,109 @@ export async function runAction(options: RunActionOptions = {}): Promise<void> {
   } catch (error) {
     actionCore.setFailed(error instanceof Error ? error.message : String(error));
   }
+}
+
+export class ConfigError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ConfigError";
+  }
+}
+
+const CONFIG_FILE_ONLY_KEYS = new Set([
+  "in_place",
+  "in_place_marker_start",
+  "in_place_marker_end",
+  "columns_per_row",
+  "entry_template",
+  "header",
+  "footer",
+  "template_file",
+  "template_placeholder",
+  "empty_text",
+  "sort",
+  "min_contributions",
+  "pin_warn_on_stale",
+  "ignore",
+  "unignore",
+  "classification",
+  "identity_map",
+]);
+
+export function assertNoConflicts(
+  overrides: Record<string, unknown>,
+  yamlRecord: Record<string, unknown>,
+  configFilePath: string
+): void {
+  const conflicts: Array<{ key: string; workflow: unknown; yaml: unknown }> = [];
+  for (const key of Object.keys(overrides)) {
+    if (CONFIG_FILE_ONLY_KEYS.has(key) && key in yamlRecord) {
+      conflicts.push({ key, workflow: overrides[key], yaml: yamlRecord[key] });
+    }
+  }
+  if (conflicts.length === 0) return;
+
+  const lines = [
+    `contributors-please-action: conflicting configuration for ${conflicts.length === 1 ? "key" : "keys"} ` +
+      `${conflicts.map(c => `"${c.key}"`).join(", ")}.`,
+    "",
+    `The following ${conflicts.length === 1 ? "key is" : "keys are"} set in both the workflow inputs and ${configFilePath}:`,
+  ];
+  for (const { key, workflow, yaml } of conflicts) {
+    lines.push(
+      `  - ${key}:`,
+      `      workflow input: ${formatValue(workflow)}`,
+      `      ${configFilePath}: ${formatValue(yaml)}`
+    );
+  }
+  lines.push(
+    "",
+    `These keys must be set in exactly one place. ${configFilePath} is the source of truth for project ` +
+      "configuration (formatting, classification, identity_map, ignore, etc.); workflow inputs are reserved " +
+      "for operational concerns (paths, mode, dry-run, credentials).",
+    "",
+    "Remove the value from one source. See the README's \"Configuration source policy\" section for details."
+  );
+  throw new ConfigError(lines.join("\n"));
+}
+
+function formatValue(value: unknown): string {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+async function readYamlConfigRecord(
+  configFile: string
+): Promise<Record<string, unknown>> {
+  let raw: string;
+  try {
+    raw = await readFile(configFile, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return {};
+    }
+    throw error;
+  }
+  let parsed: unknown;
+  try {
+    parsed = parseYaml(raw);
+  } catch (error) {
+    throw new ConfigError(
+      `Failed to parse ${configFile}: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+  if (parsed === null || parsed === undefined) {
+    return {};
+  }
+  if (typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new ConfigError(
+      `Expected ${configFile} to contain a YAML mapping at the top level.`
+    );
+  }
+  return parsed as Record<string, unknown>;
 }
 
 function actionConfigOverrides(coreApi: CoreLike): Record<string, unknown> {
