@@ -15960,6 +15960,7 @@ var __webpack_exports__ = {};
 // EXPORTS
 __nccwpck_require__.d(__webpack_exports__, {
   Rj: () => (/* reexport */ Contributors),
+  Kb: () => (/* reexport */ DEFAULT_COMMIT_MESSAGE),
   jh: () => (/* reexport */ GitHubClient),
   tF: () => (/* reexport */ PathClassifier),
   xv: () => (/* reexport */ VERSION),
@@ -19704,6 +19705,8 @@ function formatValidationErrors(errors) {
 
 
 const contributors_execFileAsync = (0,external_node_util_namespaceObject.promisify)(external_node_child_process_namespaceObject.execFile);
+const DEFAULT_COMMIT_MESSAGE = "docs: update contributors";
+const SKIP_CI_TRAILER = "[skip ci]";
 class Contributors {
     github;
     config;
@@ -19826,7 +19829,11 @@ class Contributors {
             this.config.stateFile,
             this.config.outputFile,
         ]);
-        await contributors_git(this.options.repoPath, ["commit", "-m", options.message]);
+        await contributors_git(this.options.repoPath, [
+            "commit",
+            "-m",
+            resolveCommitMessage(options.message, options.skipCi ?? true),
+        ]);
         const { stdout } = await contributors_git(this.options.repoPath, ["rev-parse", "HEAD"]);
         return {
             ...result,
@@ -19861,7 +19868,11 @@ class Contributors {
             this.config.stateFile,
             this.config.outputFile,
         ]);
-        await contributors_git(this.options.repoPath, ["commit", "-m", options.commitMessage]);
+        await contributors_git(this.options.repoPath, [
+            "commit",
+            "-m",
+            resolveCommitMessage(options.commitMessage, options.skipCi ?? false),
+        ]);
         const { stdout } = await contributors_git(this.options.repoPath, ["rev-parse", "HEAD"]);
         const commitSha = stdout.trim();
         if (options.push ?? true) {
@@ -19919,6 +19930,13 @@ class Contributors {
         return (this.options.bootstrap &&
             !(await exists((0,external_node_path_namespaceObject.join)(this.options.repoPath, this.config.stateFile))));
     }
+}
+function resolveCommitMessage(message, skipCi) {
+    const base = message ?? DEFAULT_COMMIT_MESSAGE;
+    if (!skipCi || base.includes(SKIP_CI_TRAILER)) {
+        return base;
+    }
+    return `${base}\n\n${SKIP_CI_TRAILER}`;
 }
 function makePatch(file, before, after) {
     if (before === after) {
@@ -20377,8 +20395,14 @@ function nextLink(header) {
     return undefined;
 }
 
+;// CONCATENATED MODULE: ./package.json
+const package_namespaceObject = {"rE":"1.1.1"};
 ;// CONCATENATED MODULE: ./src/version.ts
-const VERSION = "1.0.2";
+// Single source of truth for the package version: package.json.
+// release-please bumps package.json; ncc bundles the resolved literal
+// into dist/lib.js + dist/cli.js at build time.
+
+const VERSION = package_namespaceObject.rE;
 
 ;// CONCATENATED MODULE: ./src/lib.ts
 
@@ -20389,6 +20413,7 @@ const VERSION = "1.0.2";
 
 
 var __webpack_exports__Contributors = __webpack_exports__.Rj;
+var __webpack_exports__DEFAULT_COMMIT_MESSAGE = __webpack_exports__.Kb;
 var __webpack_exports__GitHubClient = __webpack_exports__.jh;
 var __webpack_exports__PathClassifier = __webpack_exports__.tF;
 var __webpack_exports__VERSION = __webpack_exports__.xv;
@@ -20397,4 +20422,4 @@ var __webpack_exports__parseTemplate = __webpack_exports__.QC;
 var __webpack_exports__readStateFile = __webpack_exports__.qy;
 var __webpack_exports__render = __webpack_exports__.XX;
 var __webpack_exports__writeStateFile = __webpack_exports__.VP;
-export { __webpack_exports__Contributors as Contributors, __webpack_exports__GitHubClient as GitHubClient, __webpack_exports__PathClassifier as PathClassifier, __webpack_exports__VERSION as VERSION, __webpack_exports__mergeState as mergeState, __webpack_exports__parseTemplate as parseTemplate, __webpack_exports__readStateFile as readStateFile, __webpack_exports__render as render, __webpack_exports__writeStateFile as writeStateFile };
+export { __webpack_exports__Contributors as Contributors, __webpack_exports__DEFAULT_COMMIT_MESSAGE as DEFAULT_COMMIT_MESSAGE, __webpack_exports__GitHubClient as GitHubClient, __webpack_exports__PathClassifier as PathClassifier, __webpack_exports__VERSION as VERSION, __webpack_exports__mergeState as mergeState, __webpack_exports__parseTemplate as parseTemplate, __webpack_exports__readStateFile as readStateFile, __webpack_exports__render as render, __webpack_exports__writeStateFile as writeStateFile };

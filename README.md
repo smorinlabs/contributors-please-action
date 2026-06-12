@@ -56,6 +56,24 @@ is a fallback for repositories that have not installed the App yet.
 `dry-run: true` computes outputs and logs skipped side effects without writing,
 committing, pushing, labeling, opening PRs, failing check mode, or commenting.
 
+### Commit messages and `[skip ci]`
+
+- `commit-message` defaults to `docs: update contributors`. The `[skip ci]`
+  trailer is controlled by the `skip-ci` input, not the message.
+- `skip-ci` appends a `[skip ci]` trailer to the generated commit message. It
+  defaults to `true` in `commit` mode (loop guard for commits pushed to the
+  default branch) and `false` in `pull-request` mode. A custom `commit-message`
+  that already contains `[skip ci]` is never double-appended.
+
+> [!WARNING]
+> In `mode: pull-request`, a `[skip ci]` trailer (from `skip-ci: true` or a
+> custom `commit-message` containing it) is incompatible with required status
+> checks on the base branch: the suppressed workflows never report, and the PR
+> stays at "Expected — waiting for status to be reported" forever. For loop
+> protection in pull-request flows, use `paths-ignore` on the generated files
+> (e.g. `CONTRIBUTORS.md`, `.contributors.jsonl`) in the calling workflow
+> instead of `[skip ci]`.
+
 ## Configuration
 
 Create `.contributors.yml` in the repository:
