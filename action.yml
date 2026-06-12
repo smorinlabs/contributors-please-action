@@ -102,12 +102,19 @@ inputs:
     required: false
     default: 'false'
   commit-message:
-    description: Commit message used when the action creates commits.
+    description: >-
+      Commit message used when the action creates commits. The "[skip ci]"
+      trailer is governed by the skip-ci input, not this message.
     required: false
-    default: |
-      docs: update contributors
-
-      [skip ci]
+    default: 'docs: update contributors'
+  skip-ci:
+    description: >-
+      Append a "[skip ci]" trailer to the generated commit message.
+      Defaults to "true" in commit mode (loop guard for commits pushed to the
+      default branch) and "false" in pull-request mode, where the trailer
+      prevents required status checks on the base branch from ever reporting.
+    required: false
+    default: ''
   skip-labeling:
     description: Suppress contributors-please PR label creation/application.
     required: false

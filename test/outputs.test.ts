@@ -61,4 +61,23 @@ describe("action outputs", () => {
       expect(action.inputs[name]?.default ?? "", `${name} default`).toBe("");
     }
   });
+
+  it("defaults commit-message to the engine default without a [skip ci] trailer", async () => {
+    const action = parse(await readFile("action.yml", "utf8")) as {
+      inputs: Record<string, { default?: string }>;
+    };
+
+    expect(action.inputs["commit-message"].default).toBe(
+      "docs: update contributors"
+    );
+  });
+
+  it("declares skip-ci with an empty default so engine per-mode defaults apply", async () => {
+    const action = parse(await readFile("action.yml", "utf8")) as {
+      inputs: Record<string, { default?: string }>;
+    };
+
+    expect(action.inputs["skip-ci"]).toBeDefined();
+    expect(action.inputs["skip-ci"].default).toBe("");
+  });
 });
