@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file. The format 
 
 Releases are managed by [release-please](https://github.com/googleapis/release-please) from conventional commits on `main`.
 
+## [1.2.0](https://github.com/smorinlabs/contributors-please-action/compare/v1.1.0...v1.2.0) (2026-06-08)
+
+
+### Features
+
+* error on conflicting workflow input + yaml config keys ([#21](https://github.com/smorinlabs/contributors-please-action/issues/21)) ([e991553](https://github.com/smorinlabs/contributors-please-action/commit/e991553f93c9dfd0ecbedf93f705b046f267f2b9))
+
+
+### CI/CD
+
+* add sync-dist job to release-please workflow ([#18](https://github.com/smorinlabs/contributors-please-action/issues/18)) ([ae81173](https://github.com/smorinlabs/contributors-please-action/commit/ae8117383b261ad81c149b864a550997751ff5cf))
+
 ## [1.1.0](https://github.com/smorinlabs/contributors-please-action/compare/v1.0.6...v1.1.0) (2026-06-08)
 
 
