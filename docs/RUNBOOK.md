@@ -93,3 +93,29 @@ Run this on a fresh fork or throwaway branch of
   or reapply `contributors-please: pending`.
 - If `changed` is true on a manual re-run with no source changes, inspect the
   `.contributors.jsonl` diff for non-idempotent fields before tagging v1.
+
+## Engine Sync Check
+
+The action must stay in sync with the `contributors-please` engine across four
+version references: the `VERSION` embedded in `dist/contributors-please-lib.js`,
+the `package-lock.json` snapshot of the `file:../contributors-please`
+dependency, the `CONTRIBUTORS_PLEASE_LIBRARY_REF` repository variable that CI
+builds against, and the latest engine release.
+
+`scripts/check-engine-sync.mjs` asserts all four agree and prints the exact
+remediation command for whichever pair diverged:
+
+- `npm run check:sync` — full check (needs network; uses `GITHUB_TOKEN` if set).
+- `npm run check:sync:local` — offline subset (embedded vs lockfile vs the
+  sibling `../contributors-please` checkout); wired as a pre-commit hook via
+  `.pre-commit-config.yaml` (`pre-commit install` to enable).
+
+CI runs the full check in `.github/workflows/engine-sync.yml` on every PR and
+push to main, on a daily schedule (catches engine releases while this repo is
+idle), and on a `contributors-please-released` repository dispatch sent by the
+engine's release workflow. Typical failures:
+
+- **Pin lags latest release** — PATCH the repository variable (the failure
+  output contains the exact `gh api` command), then re-run failed CI.
+- **Embedded lib lags latest release** — rebuild against the new engine and
+  commit `dist` + `package-lock.json` (commands in the failure output).
