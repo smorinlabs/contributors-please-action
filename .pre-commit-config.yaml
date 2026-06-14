@@ -1,0 +1,10 @@
+repos:
+  - repo: local
+    hooks:
+      - id: engine-sync-local
+        name: engine sync (offline checks)
+        entry: node scripts/check-engine-sync.mjs
+        args: [--local]
+        language: system
+        pass_filenames: false
+        files: ^(dist/|package-lock\.json|package\.json)
