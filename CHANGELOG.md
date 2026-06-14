@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file. The format 
 
 Releases are managed by [release-please](https://github.com/googleapis/release-please) from conventional commits on `main`.
 
+## [1.3.0](https://github.com/smorinlabs/contributors-please-action/compare/v1.2.0...v1.3.0) (2026-06-14)
+
+
+### Features
+
+* **ci:** add engine sync check with actionable remediation ([#26](https://github.com/smorinlabs/contributors-please-action/issues/26)) ([3091ee5](https://github.com/smorinlabs/contributors-please-action/commit/3091ee5b667b8e8aedafb91cceeb330b5b5920dd))
+
+
+### Bug Fixes
+
+* **deps:** rebuild dist against contributors-please v1.2.0 ([#25](https://github.com/smorinlabs/contributors-please-action/issues/25)) ([1f1fb40](https://github.com/smorinlabs/contributors-please-action/commit/1f1fb40a7818ca592b15bda49a1386b9de90eb7a))
+* govern [skip ci] via new skip-ci input with mode-aware defaults ([#23](https://github.com/smorinlabs/contributors-please-action/issues/23)) ([da344ce](https://github.com/smorinlabs/contributors-please-action/commit/da344cea1e2e2643c0b4f2a9cb0c510bb69c2803)), closes [#22](https://github.com/smorinlabs/contributors-please-action/issues/22)
+
 ## [1.2.0](https://github.com/smorinlabs/contributors-please-action/compare/v1.1.0...v1.2.0) (2026-06-08)
 
 
