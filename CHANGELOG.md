@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file. The format 
 
 Releases are managed by [release-please](https://github.com/googleapis/release-please) from conventional commits on `main`.
 
+## [1.3.1](https://github.com/smorinlabs/contributors-please-action/compare/v1.3.0...v1.3.1) (2026-06-14)
+
+
+### Documentation
+
+* **skills:** add three Claude Code skills for the multi-repo system ([#27](https://github.com/smorinlabs/contributors-please-action/issues/27)) ([7794967](https://github.com/smorinlabs/contributors-please-action/commit/7794967adbc386c42e0cdd0588130ceada46bf28))
+
 ## [1.3.0](https://github.com/smorinlabs/contributors-please-action/compare/v1.2.0...v1.3.0) (2026-06-14)
 
 
