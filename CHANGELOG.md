@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file. The format 
 
 Releases are managed by [release-please](https://github.com/googleapis/release-please) from conventional commits on `main`.
 
+## [1.3.2](https://github.com/smorinlabs/contributors-please-action/compare/v1.3.1...v1.3.2) (2026-06-15)
+
+
+### Bug Fixes
+
+* **ci:** materialize engine dep before sync-dist build ([#29](https://github.com/smorinlabs/contributors-please-action/issues/29)) ([2988f81](https://github.com/smorinlabs/contributors-please-action/commit/2988f81af862b083cc369fa3ae2cbfa6ff627d3c))
+
+
+### CI/CD
+
+* disable credential persistence on read-only engine checkouts ([#30](https://github.com/smorinlabs/contributors-please-action/issues/30)) ([ac67c5d](https://github.com/smorinlabs/contributors-please-action/commit/ac67c5dfdf2926476e5acbb61025106cebfe778f))
+
 ## [1.3.1](https://github.com/smorinlabs/contributors-please-action/compare/v1.3.0...v1.3.1) (2026-06-14)
 
 
