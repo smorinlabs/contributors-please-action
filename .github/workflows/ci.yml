@@ -18,6 +18,7 @@ jobs:
           ref: ${{ vars.CONTRIBUTORS_PLEASE_LIBRARY_REF || 'main' }}
           path: .deps/contributors-please
           token: ${{ secrets.CONTRIBUTORS_PLEASE_LIBRARY_TOKEN || github.token }}
+          persist-credentials: false
 
       - name: Link local library dependency
         run: |
