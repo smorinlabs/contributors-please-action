@@ -8,9 +8,9 @@ metadata:
 
 # Monitor multi-repo CI
 
-The `contributors-please` system spans three repos with an event-driven cascade. Failures are usually in the *plumbing between* repos (stale pins, lost events, rate limits), not the code. This skill is how to watch the cascade and map a red mark to its real cause.
+The `contributors-please` system spans three repos with an event-driven cascade. Failures are usually in the *plumbing between* repos (stale tracked refs, lost events, rate limits), not the code. This skill is how to watch the cascade and map a red mark to its real cause.
 
-**Core principle:** distinguish a *code* failure from an *environmental* one before acting. A red suite is far more often a stale pin, a lost webhook, or a shared-account rate limit than a real regression.
+**Core principle:** distinguish a *code* failure from an *environmental* one before acting. A red suite is far more often a stale tracked ref, a lost webhook, or a shared-account rate limit than a real regression.
 
 ## The cascade (what triggers what)
 
@@ -46,7 +46,7 @@ gh run list --repo smorinlabs/contributors-please-action --json name,headSha,sta
 Red suite/job
   ├─ Failed at a SETUP step (checkout, "Prepare … baseline", token)? ─▶ environmental
   │     └─ message has "rate limit", "API limit exceeded", "not found"? ─▶ rate-limit / lost-event (see catalog)
-  ├─ Failed at a BUILD step with TS2307/TS2345 (engine types)? ─────▶ stale CI pin (catalog: pin)
+  ├─ Failed at a BUILD step with TS2307/TS2345 (engine types)? ─────▶ stale tracked ref / setup drift (catalog: tracked ref)
   ├─ git diff on dist (CP-GHA-038)? ───────────────────────────────▶ embedded version drift (catalog: drift)
   ├─ "conflicting configuration for keys …"? ──────────────────────▶ config-source conflict (catalog: conflict)
   └─ Failed inside a fake-API deterministic suite asserting behavior? ─▶ likely a REAL regression — investigate the change
@@ -70,7 +70,7 @@ When GraphQL is exhausted, **switch to REST**: create/merge PRs via `gh api repo
 | Why a step failed | `gh run view {id} --repo {repo} --log-failed` |
 | Did CI even trigger? | `gh api repos/{repo}/commits/{sha}/check-suites --jq '.check_suites[] \| {app:.app.slug,status}'` |
 | Rate-limit state | `gh api rate_limit --jq .resources` |
-| Engine sync state | `npm run check:sync` (in the action repo) |
+| Engine sync state | `npm run check:sync:trusted` (in the action repo) |
 
 ## Failure catalog
 
@@ -79,13 +79,13 @@ Full diagnosis + remedy per failure mode in `references/failure-catalog.md`. Sum
 | Failure | Tell | Class |
 |---|---|---|
 | Lost webhook event | No run for head SHA; third-party check-suites queued but no `github-actions` | environmental |
-| Stale CI pin | `TS2307/TS2345` cannot find module / type mismatch on engine | plumbing |
+| Stale tracked ref | tracked ref < latest, or engine type mismatch after release | plumbing |
 | Embedded version drift | CP-GHA-038 `git diff … dist` non-empty | plumbing |
 | Config-source conflict | `ConfigError: conflicting configuration for keys` | config |
 | GraphQL exhaustion | `gh pr` fails "rate limit"; `gh api` works | rate-limit |
 | live-adoption flake | live suite fails at setup w/ "rate limit … user ID" | environmental |
 | sync-dist red | release PR check fails build `TS2307` (no engine dep) | plumbing (fixed #29; recurs if a build job drops engine setup) |
-| PR fails engine-sync on stale dist | PR predating a dist rebuild; embedded < pin/latest | plumbing (update the PR branch) |
-| Engine-release drift | after engine release, pin < latest | plumbing (use update-multi-repo-ci) |
+| PR fails engine-sync on stale dist | PR predating a dist rebuild; embedded < tracked/latest | plumbing (update the PR branch) |
+| Engine-release drift | after engine release, tracked ref < latest | plumbing (use update-multi-repo-ci) |
 
 When the fix is a plumbing change, hand off to the **update-multi-repo-ci** skill.

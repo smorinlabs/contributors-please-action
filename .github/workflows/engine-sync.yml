@@ -26,6 +26,5 @@ jobs:
 
       - name: Check engine version references
         env:
-          CONTRIBUTORS_PLEASE_LIBRARY_REF: ${{ vars.CONTRIBUTORS_PLEASE_LIBRARY_REF }}
           GITHUB_TOKEN: ${{ github.token }}
-        run: node scripts/check-engine-sync.mjs
+        run: npm run check:sync:trusted

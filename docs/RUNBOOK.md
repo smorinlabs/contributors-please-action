@@ -21,9 +21,10 @@ The E2E workflow can be run manually, runs nightly, and also runs for
   release setup, configure `CONTRIBUTORS_PLEASE_LIBRARY_TOKEN` in
   `smorinlabs/contributors-please-action` with read access to the library repo.
   Public sibling checkouts fall back to `github.token`.
-- The action CI workflow checks out
-  `vars.CONTRIBUTORS_PLEASE_LIBRARY_REF` when set, otherwise
-  `main`.
+- The action CI workflow materializes the engine release recorded in
+  `.contributors-please-engine-ref`. Engine releases are synced by
+  `.github/workflows/sync-engine-release.yml`, which opens or updates the
+  action-side rebuild PR.
 - For the optional scheduled GitHub Enterprise smoke job:
   - a self-hosted runner labeled `contributors-please-ghe`
   - repository variables on `smorinlabs/contributors-please-action`:
@@ -99,23 +100,29 @@ Run this on a fresh fork or throwaway branch of
 The action must stay in sync with the `contributors-please` engine across four
 version references: the `VERSION` embedded in `dist/contributors-please-lib.js`,
 the `package-lock.json` snapshot of the `file:../contributors-please`
-dependency, the `CONTRIBUTORS_PLEASE_LIBRARY_REF` repository variable that CI
-builds against, and the latest engine release.
+dependency, the tracked `.contributors-please-engine-ref`, and the latest
+engine release.
 
-`scripts/check-engine-sync.mjs` asserts all four agree and prints the exact
-remediation command for whichever pair diverged:
+`scripts/check-engine-sync.mjs` asserts the relevant references agree for the
+selected policy mode and prints remediation commands for whichever pair
+diverged:
 
-- `npm run check:sync` — full check (needs network; uses `GITHUB_TOKEN` if set).
+- `npm run check:sync` / `npm run check:sync:trusted` — trusted check (needs
+  network; uses `GITHUB_TOKEN` if set) comparing the tracked ref with the
+  latest engine release.
 - `npm run check:sync:local` — offline subset (embedded vs lockfile vs the
-  sibling `../contributors-please` checkout); wired as a pre-commit hook via
-  `.pre-commit-config.yaml` (`pre-commit install` to enable).
+  tracked ref vs the sibling `../contributors-please` checkout); wired as a
+  pre-commit hook via `.pre-commit-config.yaml` (`pre-commit install` to
+  enable).
+- `npm run check:sync:release` — strict release gate for action tag releases.
 
-CI runs the full check in `.github/workflows/engine-sync.yml` on every PR and
+CI runs the trusted check in `.github/workflows/engine-sync.yml` on every PR and
 push to main, on a daily schedule (catches engine releases while this repo is
 idle), and on a `contributors-please-released` repository dispatch sent by the
 engine's release workflow. Typical failures:
 
-- **Pin lags latest release** — PATCH the repository variable (the failure
-  output contains the exact `gh api` command), then re-run failed CI.
+- **Tracked ref lags latest release** — run `sync-engine-release.yml` with the
+  new engine tag, or let the `contributors-please-released` dispatch open the
+  sync PR.
 - **Embedded lib lags latest release** — rebuild against the new engine and
   commit `dist` + `package-lock.json` (commands in the failure output).

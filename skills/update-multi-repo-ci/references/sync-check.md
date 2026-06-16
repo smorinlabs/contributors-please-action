@@ -1,6 +1,6 @@
 # `check-engine-sync.mjs` reference
 
-Location: `scripts/check-engine-sync.mjs` (action repo). Asserts the four version references agree and prints actionable remediation on mismatch.
+Location: `scripts/check-engine-sync.mjs` (action repo). Asserts the relevant engine version references agree for the selected policy mode and prints actionable remediation on mismatch.
 
 ## What it gathers
 
@@ -8,14 +8,16 @@ Location: `scripts/check-engine-sync.mjs` (action repo). Asserts the four versio
 |---|---|
 | `embedded` | `VERSION` from `dist/contributors-please-lib.js` (dynamic `import()` — stable, unlike grepping the minified bundle) |
 | `lockfile` | `package-lock.json` → `packages["../contributors-please"].version` |
+| `trackedRef` | `.contributors-please-engine-ref` |
 | `localEngine` | `../contributors-please/package.json` version (when the sibling checkout exists) |
-| `pin` | env `CONTRIBUTORS_PLEASE_LIBRARY_REF`, else the repo variable via the API |
+| `pin` | explicit env `CONTRIBUTORS_PLEASE_LIBRARY_REF` compatibility override, when present |
 | `latestRelease` | engine repo's `releases/latest` |
 
 ## Modes
 
-- `node scripts/check-engine-sync.mjs` — full check (needs network; uses `GITHUB_TOKEN`/`GH_TOKEN` if present). `npm run check:sync`.
-- `node scripts/check-engine-sync.mjs --local` — offline subset (embedded vs lockfile vs sibling engine only). `npm run check:sync:local`. Used by the pre-commit hook.
+- `node scripts/check-engine-sync.mjs` / `--trusted` — trusted check (needs network; uses `GITHUB_TOKEN`/`GH_TOKEN` if present). `npm run check:sync:trusted`.
+- `node scripts/check-engine-sync.mjs --local` — offline subset (embedded vs lockfile vs tracked ref vs sibling engine). `npm run check:sync:local`. Used by the pre-commit hook and regular CI.
+- `node scripts/check-engine-sync.mjs --release` — strict release gate for action tag releases. `npm run check:sync:release`.
 
 ## Diagnosis rules (`diagnose()` — pure, unit-tested)
 
@@ -23,8 +25,12 @@ Location: `scripts/check-engine-sync.mjs` (action repo). Asserts the four versio
 |---|---|---|
 | `embedded-vs-lockfile` | embedded ≠ lockfile | rebuild + commit dist & lockfile |
 | `embedded-vs-local-engine` | embedded ≠ sibling engine checkout | rebuild |
-| `pin-vs-latest-release` | pin is a semver tag ≠ latest release | `gh api --method PATCH … LIBRARY_REF -f value=<latest>` |
-| `embedded-vs-latest-release` | embedded ≠ latest release | rebuild against `<latest>` + commit |
+| `tracked-ref-vs-lockfile` | tracked ref ≠ lockfile | rebuild against tracked ref |
+| `tracked-ref-vs-embedded` | tracked ref ≠ embedded | rebuild against tracked ref |
+| `tracked-ref-vs-local-engine` | tracked ref ≠ sibling engine checkout | materialize the tracked ref |
+| `tracked-ref-vs-latest-release` | trusted/release mode: tracked ref ≠ latest release | update `.contributors-please-engine-ref`, then rebuild |
+| `pin-vs-latest-release` | explicit compatibility pin is a semver tag ≠ latest release | unset the override or set it to the tracked/latest release |
+| `embedded-vs-latest-release` | trusted/release mode: embedded ≠ latest release | rebuild against `<latest>` + commit |
 | (note) | pin is a branch name (e.g. `main`) | non-fatal note: floating ref, pin a tag for reproducible CI |
 
 `diagnose()` is separated from I/O so it is unit-testable without network. Output goes to stdout, `::error` annotations, and `$GITHUB_STEP_SUMMARY`.
@@ -33,7 +39,7 @@ Location: `scripts/check-engine-sync.mjs` (action repo). Asserts the four versio
 
 - `pull_request` + `push: main` — catch drift you're about to merge.
 - `schedule` (daily cron) — catch drift that happens *to* you (engine releases while the action repo is idle). This is the backstop that would have caught the months-stale `v1.0.2` pin.
-- `repository_dispatch: contributors-please-released` — event-driven; the engine's `publish.yml` sends it after `npm publish`.
+- `repository_dispatch: contributors-please-released` — event-driven; the engine's `publish.yml` sends it after `npm publish`. `sync-engine-release.yml` also consumes this event to open/update the sync PR.
 - `workflow_dispatch` — manual.
 
 ## Extending it

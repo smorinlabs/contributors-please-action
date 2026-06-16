@@ -33,14 +33,8 @@ describe("release workflow", () => {
         step.uses === "actions/checkout@v6" &&
         step.with?.repository === "smorinlabs/contributors-please"
     );
-    const dependencyCheckout = steps.indexOf(dependencyCheckoutStep ?? {});
-    const dependencyLink = steps.findIndex(
-      step =>
-        step.run?.includes(".deps/contributors-please") &&
-        step.run.includes("../contributors-please")
-    );
-    const dependencyInstall = steps.findIndex(
-      step => step.run === "npm ci --prefix .deps/contributors-please"
+    const dependencySetup = steps.findIndex(
+      step => step.run === "node scripts/setup-engine-dep.mjs"
     );
     const setupNode = steps.find(step => step.with?.["node-version"]);
     const versionCheck = steps.findIndex(
@@ -50,6 +44,7 @@ describe("release workflow", () => {
     );
     const npmCi = steps.findIndex(step => step.run === "npm ci");
     const npmTest = steps.findIndex(step => step.run === "npm test");
+    const releaseSync = steps.findIndex(step => step.run === "npm run check:sync:release");
     const build = steps.findIndex(step => step.run === "npm run build");
     const distDiff = steps.findIndex(step => step.run === "git diff --exit-code -- dist");
     const majorTag = steps.findIndex(step =>
@@ -60,18 +55,16 @@ describe("release workflow", () => {
     );
 
     expect(setupNode?.with).toMatchObject({ "node-version": 24 });
-    expect(dependencyCheckout).toBeGreaterThanOrEqual(0);
-    expect(dependencyCheckoutStep?.with).toMatchObject({
-      ref: "${{ vars.CONTRIBUTORS_PLEASE_LIBRARY_REF || 'v1.0.0' }}",
-      path: ".deps/contributors-please",
-      token: "${{ secrets.CONTRIBUTORS_PLEASE_LIBRARY_TOKEN || github.token }}",
-    });
-    expect(dependencyLink).toBeGreaterThan(dependencyCheckout);
-    expect(dependencyInstall).toBeGreaterThan(dependencyLink);
-    expect(versionCheck).toBeGreaterThan(dependencyCheckout);
-    expect(npmCi).toBeGreaterThan(dependencyInstall);
+    expect(dependencyCheckoutStep).toBeUndefined();
+    expect(dependencySetup).toBeGreaterThanOrEqual(0);
+    expect(JSON.stringify(workflow)).not.toContain(
+      "CONTRIBUTORS_PLEASE_LIBRARY_REF || 'v1.0.0'"
+    );
+    expect(versionCheck).toBeGreaterThan(dependencySetup);
+    expect(npmCi).toBeGreaterThan(dependencySetup);
     expect(npmCi).toBeGreaterThan(versionCheck);
-    expect(npmTest).toBeGreaterThan(npmCi);
+    expect(releaseSync).toBeGreaterThan(npmCi);
+    expect(npmTest).toBeGreaterThan(releaseSync);
     expect(build).toBeGreaterThan(npmTest);
     expect(distDiff).toBeGreaterThan(build);
     expect(majorTag).toBeGreaterThan(distDiff);

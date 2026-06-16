@@ -9,6 +9,7 @@ describe("engine sync diagnosis", () => {
     embedded: "1.2.0",
     lockfile: "1.2.0",
     localEngine: "1.2.0",
+    trackedRef: "v1.2.0",
     pin: "v1.2.0",
     latestRelease: "v1.2.0",
   };
@@ -35,7 +36,8 @@ describe("engine sync diagnosis", () => {
       embedded: "1.1.1",
       lockfile: "1.1.1",
       localEngine: "1.2.0",
-    });
+      trackedRef: "v1.1.1",
+    }, { mode: "local" });
 
     expect(result.ok).toBe(false);
     const failure = result.failures.find(f => f.id === "embedded-vs-local-engine");
@@ -43,14 +45,15 @@ describe("engine sync diagnosis", () => {
     expect(failure!.remedy).toContain("npm run build");
   });
 
-  it("fails with the variable PATCH command when the CI pin lags the latest release", () => {
+  it("fails with an override remedy when the compatibility pin lags the latest release", () => {
     const result = diagnose({ ...inSync, pin: "v1.0.2" });
 
     expect(result.ok).toBe(false);
     const failure = result.failures.find(f => f.id === "pin-vs-latest-release");
     expect(failure).toBeDefined();
     expect(failure!.remedy).toContain("CONTRIBUTORS_PLEASE_LIBRARY_REF");
-    expect(failure!.remedy).toContain("value=v1.2.0");
+    expect(failure!.remedy).toContain("v1.2.0");
+    expect(failure!.remedy).not.toContain("gh api");
   });
 
   it("fails with rebuild-and-commit instructions when the engine releases past the embedded lib", () => {
@@ -75,7 +78,8 @@ describe("engine sync diagnosis", () => {
       embedded: "1.2.0",
       lockfile: "1.2.0",
       localEngine: "1.2.0",
-    });
+      trackedRef: "v1.2.0",
+    }, { mode: "local" });
 
     expect(result.ok).toBe(true);
     expect(result.failures).toEqual([]);
@@ -87,9 +91,77 @@ describe("engine sync diagnosis", () => {
     expect(result.ok).toBe(true);
     expect(result.notes.join("\n")).toContain("main");
   });
+
+  it("passes local mode when embedded, lockfile, tracked ref, and local engine agree", () => {
+    const result = diagnose({
+      embedded: "1.3.0",
+      lockfile: "1.3.0",
+      trackedRef: "v1.3.0",
+      localEngine: "1.3.0",
+    }, { mode: "local" });
+
+    expect(result.ok).toBe(true);
+    expect(result.failures).toEqual([]);
+  });
+
+  it("fails local mode when the tracked engine ref differs from the lockfile", () => {
+    const result = diagnose({
+      embedded: "1.3.0",
+      lockfile: "1.3.0",
+      trackedRef: "v1.2.0",
+      localEngine: "1.3.0",
+    }, { mode: "local" });
+
+    expect(result.ok).toBe(false);
+    expect(result.failures.map(f => f.id)).toContain("tracked-ref-vs-lockfile");
+  });
+
+  it("does not fail local mode solely because the latest release is newer", () => {
+    const result = diagnose({
+      embedded: "1.3.0",
+      lockfile: "1.3.0",
+      trackedRef: "v1.3.0",
+      localEngine: "1.3.0",
+      latestRelease: "v1.4.0",
+    }, { mode: "local" });
+
+    expect(result.ok).toBe(true);
+    expect(result.failures).toEqual([]);
+  });
+
+  it("fails trusted mode when the latest release is newer than the tracked ref", () => {
+    const result = diagnose({
+      embedded: "1.3.0",
+      lockfile: "1.3.0",
+      trackedRef: "v1.3.0",
+      localEngine: "1.3.0",
+      latestRelease: "v1.4.0",
+    }, { mode: "trusted" });
+
+    expect(result.ok).toBe(false);
+    expect(result.failures.map(f => f.id)).toContain(
+      "tracked-ref-vs-latest-release"
+    );
+  });
 });
 
 describe("engine sync workflow", () => {
+  it("exposes local, trusted, and release sync scripts", async () => {
+    const pkg = JSON.parse(await readFile("package.json", "utf8")) as {
+      scripts: Record<string, string>;
+    };
+
+    expect(pkg.scripts["check:sync:local"]).toBe(
+      "node scripts/check-engine-sync.mjs --local"
+    );
+    expect(pkg.scripts["check:sync:trusted"]).toBe(
+      "node scripts/check-engine-sync.mjs --trusted"
+    );
+    expect(pkg.scripts["check:sync:release"]).toBe(
+      "node scripts/check-engine-sync.mjs --release"
+    );
+  });
+
   it("runs the sync script on PRs, on a schedule, and on engine release dispatch", async () => {
     const workflow = parse(
       await readFile(".github/workflows/engine-sync.yml", "utf8")
@@ -100,10 +172,7 @@ describe("engine sync workflow", () => {
         repository_dispatch?: { types: string[] };
         workflow_dispatch?: unknown;
       };
-      jobs: Record<
-        string,
-        { steps: Array<{ run?: string; env?: Record<string, string> }> }
-      >;
+      jobs: Record<string, { steps: Array<{ run?: string; env?: Record<string, string> }> }>;
     };
 
     expect(workflow.on.pull_request).toBeDefined();
@@ -115,10 +184,11 @@ describe("engine sync workflow", () => {
 
     const steps = Object.values(workflow.jobs).flatMap(job => job.steps);
     const syncStep = steps.find(step =>
-      step.run?.includes("check-engine-sync.mjs")
+      step.run?.includes("npm run check:sync:trusted")
     );
     expect(syncStep).toBeDefined();
-    expect(syncStep!.env).toHaveProperty("CONTRIBUTORS_PLEASE_LIBRARY_REF");
+    expect(syncStep!.env).toHaveProperty("GITHUB_TOKEN");
+    expect(syncStep!.env).not.toHaveProperty("CONTRIBUTORS_PLEASE_LIBRARY_REF");
   });
 });
 

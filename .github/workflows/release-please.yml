@@ -136,30 +136,21 @@ jobs:
 
       # The action depends on the engine via file:../contributors-please, so the
       # bundle build (ncc) cannot resolve the 'contributors-please' module unless
-      # the engine is materialized first. Mirror ci.yml's dependency setup, or
-      # `npm run build` fails with TS2307: Cannot find module 'contributors-please'.
-      - name: Checkout local library dependency
-        uses: actions/checkout@v6
-        with:
-          repository: smorinlabs/contributors-please
-          ref: ${{ vars.CONTRIBUTORS_PLEASE_LIBRARY_REF || 'main' }}
-          path: .deps/contributors-please
-          token: ${{ secrets.CONTRIBUTORS_PLEASE_LIBRARY_TOKEN || github.token }}
-          persist-credentials: false
-
-      - name: Link local library dependency
-        run: |
-          rm -rf ../contributors-please
-          ln -s "$PWD/.deps/contributors-please" ../contributors-please
-
-      - name: Install local library dependency
-        run: npm ci --prefix .deps/contributors-please
+      # the tracked engine ref is materialized first.
+      - name: Setup local library dependency
+        env:
+          CONTRIBUTORS_PLEASE_LIBRARY_TOKEN: ${{ secrets.CONTRIBUTORS_PLEASE_LIBRARY_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/setup-engine-dep.mjs
 
       - name: Install dependencies
         run: npm ci
 
       - name: Build dist bundle
         run: npm run build
+
+      - name: Check local engine sync
+        run: npm run check:sync:local
 
       - name: Commit if changed
         env:

@@ -8,18 +8,17 @@ Each entry: **tell** (how to recognize), **cause**, **remedy**. Drawn from real 
 - **Cause:** GitHub Actions event-delivery hiccup (platform-side), not a repo problem. The `22:35` pushes triggered fine; a later one didn't.
 - **Remedy:** Re-trigger — push an empty commit (`git commit --allow-empty`) or re-run from the Actions UI / `gh run rerun`. If `main` has no required checks, it isn't blocking; verify locally with `npm run check` in the meantime.
 
-## 2. Stale CI pin (`CONTRIBUTORS_PLEASE_LIBRARY_REF`)
+## 2. Stale tracked engine ref
 
-- **Tell:** Action CI / `sync-dist` fails at the **build** step with `TS2307: Cannot find module 'contributors-please'` or `TS2345: ... 'string | undefined' is not assignable` (old engine types).
-- **Cause:** `ci.yml` checks out the engine at `vars.CONTRIBUTORS_PLEASE_LIBRARY_REF`. If that variable lags the engine API the action's source now uses, types don't resolve. (Real: pin sat at `v1.0.2` for months.)
-- **Remedy:** `npm run check:sync` prints the exact `gh api --method PATCH … CONTRIBUTORS_PLEASE_LIBRARY_REF -f value=vX.Y.Z`. PATCH it, then re-run failed CI. → **update-multi-repo-ci** skill.
-- **Note:** the variable is repo *settings*, not a file — changing it is an authenticated API write, often gated by permission prompts.
+- **Tell:** `engine-sync` reports `tracked-ref-vs-latest-release`, or action CI builds/tests against an older engine than the latest released tag.
+- **Cause:** `.contributors-please-engine-ref` lags the engine repo's latest release. The action intentionally builds from this tracked file, not a hidden repo variable.
+- **Remedy:** Run `sync-engine-release.yml` with the new engine tag or let the engine's `contributors-please-released` dispatch open the sync PR; merge the PR after `npm run check:sync:trusted` and `npm run check` pass. → **update-multi-repo-ci** skill.
 
 ## 3. Embedded version drift (CP-GHA-038)
 
 - **Tell:** CP-GHA-038 "reproducible bundles" fails; rebuilding `dist` yields a one-line change to `dist/contributors-please-lib.js` (`{"rE":"1.1.1"}` → `{"rE":"1.2.0"}`).
 - **Cause:** Engine released a new version; the action's committed lib bundle still embeds the old `VERSION` literal.
-- **Remedy:** With `../contributors-please` at the new release: `npm install && npm run build && npm test`, then commit `dist` + `package-lock.json`. → **update-multi-repo-ci** skill.
+- **Remedy:** Use `sync-engine-release.yml`, or manually set `.contributors-please-engine-ref` to the new release, materialize `../contributors-please` at that tag, run `npm install && npm run build && npm test`, then commit `.contributors-please-engine-ref`, `dist`, and `package-lock.json`. → **update-multi-repo-ci** skill.
 
 ## 4. Config-source conflict (CP-GHA-044 class)
 
@@ -40,23 +39,23 @@ Each entry: **tell** (how to recognize), **cause**, **remedy**. Drawn from real 
 - **Policy:** `live-adoption` is a **blocking** gate (`contributors-please-test/CLAUDE.md`) — watched with `--exit-status`; a failure fails the downstream suite. Do **not** make it non-blocking / `continue-on-error` to get green.
 - **Remedy:** Re-run after the GraphQL quota resets (~minutes). If it recurs, fix the **root cause** — reduce GraphQL calls in setup, add bounded retry/backoff, or provision a dedicated token/account for the live suite — rather than weakening the gate.
 
-## 7. `sync-dist` job red on release PRs (FIXED in #29)
+## 7. `sync-dist` job red on release PRs
 
 - **Tell:** `release-please` workflow: `release-please` job succeeds (PR created) but `sync-dist` job fails "Build dist bundle" with `TS2307: Cannot find module 'contributors-please'`.
-- **Cause:** `sync-dist` ran `npm ci && npm run build` without first checking out and linking `../contributors-please` like `ci.yml` does.
-- **Status:** Fixed in #29 (engine checkout added) and hardened in #32 (`persist-credentials: false`). If it recurs, a build job lost the engine-setup steps — re-apply the `ci.yml` pattern. → **update-multi-repo-ci** playbook C.
+- **Cause:** `sync-dist` ran `npm ci && npm run build` without first materializing `../contributors-please`.
+- **Remedy:** Re-apply the shared `node scripts/setup-engine-dep.mjs` step before `npm ci`, then run `npm run check:sync:local` after the rebuild. → **update-multi-repo-ci** playbook C.
 
 ## 7b. PR fails `engine-sync` on stale dist (PR predates a dist rebuild)
 
-- **Tell:** A PR whose own diff is unrelated to `dist` fails `engine-sync` (or CI's `git diff --exit-code -- dist`), reporting `embedded lib version` *behind* the pin/latest release. CI and other checks pass.
-- **Cause:** The PR branch was created before a dist-rebuild merge (e.g. a pin bump + rebuild), so it still carries the old embedded `VERSION` while the pin now points at the newer engine. The failure is the stale branch, not the PR's change. (Real: #32, behind #33's v1.3.0 rebuild.)
+- **Tell:** A PR whose own diff is unrelated to `dist` fails `engine-sync` (or CI's `git diff --exit-code -- dist`), reporting `embedded lib version` behind the tracked/latest release. CI and other checks pass.
+- **Cause:** The PR branch was created before a dist-rebuild merge, so it still carries the old embedded `VERSION` while main now tracks the newer engine. The failure is the stale branch, not the PR's change. (Real: #32, behind #33's v1.3.0 rebuild.)
 - **Remedy:** Update the PR branch with `main` — `gh api --method PUT repos/{repo}/pulls/{n}/update-branch` — which pulls in the rebuilt dist; checks re-run green. Then merge.
 
 ## 8. Engine-release self-drift
 
-- **Tell:** Right after publishing an engine release, `engine-sync` starts failing: pin / embedded `< latest release`.
-- **Cause:** Releasing the engine moves "latest release" ahead of the action's pin and embedded lib — the sync check correctly flags it.
-- **Remedy:** Decide deliberately: only release the engine when consumers need it, because it forces an action re-pin + rebuild + release cycle. If you do, follow through immediately. → **update-multi-repo-ci** skill.
+- **Tell:** Right after publishing an engine release, `engine-sync` starts failing: tracked ref / embedded `< latest release`, and/or `sync-engine-release.yml` opens a rebuild PR.
+- **Cause:** Releasing the engine moves "latest release" ahead of the action's tracked ref and embedded lib — the sync check correctly flags it.
+- **Remedy:** Decide deliberately: only release the engine when consumers need it, because it forces an action sync + rebuild + release cycle. If you do, merge the sync PR. → **update-multi-repo-ci** skill.
 
 ## 9. Concurrent/superseded downstream sweeps
 

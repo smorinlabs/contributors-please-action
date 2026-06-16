@@ -1,26 +1,42 @@
-// Verifies the four contributors-please version references stay in sync:
+// Verifies the contributors-please version references stay in sync:
 //   1. embedded   - VERSION exported by dist/contributors-please-lib.js
 //   2. lockfile   - package-lock.json snapshot of the file:../contributors-please dep
-//   3. localEngine- package.json version of the ../contributors-please checkout
-//   4. pin/latest - CONTRIBUTORS_PLEASE_LIBRARY_REF repo variable vs latest engine release
+//   3. trackedRef - tracked engine release ref in .contributors-please-engine-ref
+//   4. localEngine- package.json version of the ../contributors-please checkout
+//   5. pin/latest - compatibility override vs latest engine release
 //
 // Usage:
-//   node scripts/check-engine-sync.mjs           # full check (needs network)
+//   node scripts/check-engine-sync.mjs           # trusted check (needs network)
 //   node scripts/check-engine-sync.mjs --local   # offline checks only (pre-commit)
+//   node scripts/check-engine-sync.mjs --release # strict release gate
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const ENGINE_REPO = "smorinlabs/contributors-please";
-const ACTION_REPO = "smorinlabs/contributors-please-action";
 const VARIABLE = "CONTRIBUTORS_PLEASE_LIBRARY_REF";
+const TRACKED_REF_FILE = ".contributors-please-engine-ref";
+
+function modeFromArgs(argv) {
+  const flags = argv.filter(arg => ["--local", "--trusted", "--release"].includes(arg));
+  if (flags.length > 1) {
+    throw new Error(`Choose only one engine sync mode, got: ${flags.join(", ")}`);
+  }
+  if (flags[0] === "--local") return "local";
+  if (flags[0] === "--release") return "release";
+  return "trusted";
+}
 
 function stripV(ref) {
-  return ref?.replace(/^v/, "");
+  return ref?.trim().replace(/^v/, "");
 }
 
 function isSemverRef(ref) {
   return /^v?\d+\.\d+\.\d+(?:-[\w.]+)?$/.test(ref ?? "");
+}
+
+function refMismatch(left, right) {
+  return left !== undefined && right !== undefined && stripV(left) !== stripV(right);
 }
 
 const rebuildCommands = target =>
@@ -31,9 +47,13 @@ const rebuildCommands = target =>
     `git commit -m "fix(deps): rebuild dist against contributors-please ${target}"`,
   ].join("\n");
 
-export function diagnose({ embedded, lockfile, localEngine, pin, latestRelease }) {
+export function diagnose(
+  { embedded, lockfile, localEngine, trackedRef, pin, latestRelease },
+  { mode = "trusted" } = {}
+) {
   const failures = [];
   const notes = [];
+  const checksLatestRelease = mode === "trusted" || mode === "release";
 
   if (embedded !== undefined && lockfile !== undefined && embedded !== lockfile) {
     failures.push({
@@ -51,10 +71,34 @@ export function diagnose({ embedded, lockfile, localEngine, pin, latestRelease }
     });
   }
 
+  if (refMismatch(trackedRef, lockfile)) {
+    failures.push({
+      id: "tracked-ref-vs-lockfile",
+      message: `tracked engine ref (${trackedRef}) != lockfile snapshot (${lockfile})`,
+      remedy: rebuildCommands(trackedRef),
+    });
+  }
+
+  if (refMismatch(trackedRef, embedded)) {
+    failures.push({
+      id: "tracked-ref-vs-embedded",
+      message: `tracked engine ref (${trackedRef}) != embedded lib version (${embedded})`,
+      remedy: rebuildCommands(trackedRef),
+    });
+  }
+
+  if (refMismatch(trackedRef, localEngine)) {
+    failures.push({
+      id: "tracked-ref-vs-local-engine",
+      message: `tracked engine ref (${trackedRef}) != ../contributors-please checkout (${localEngine})`,
+      remedy: rebuildCommands(trackedRef),
+    });
+  }
+
   if (pin !== undefined && !isSemverRef(pin)) {
     notes.push(
-      `${VARIABLE} is "${pin}" (floating ref). CI tracks the engine branch head; ` +
-        "pin a release tag for reproducible CI."
+      `${VARIABLE} is "${pin}" (floating compatibility override); ` +
+        "use a release tag for reproducible sync checks."
     );
   }
 
@@ -62,20 +106,34 @@ export function diagnose({ embedded, lockfile, localEngine, pin, latestRelease }
     if (stripV(pin) !== stripV(latestRelease)) {
       failures.push({
         id: "pin-vs-latest-release",
-        message: `CI pin ${VARIABLE}=${pin} != latest engine release (${latestRelease})`,
-        remedy: [
-          `gh api --method PATCH repos/${ACTION_REPO}/actions/variables/${VARIABLE} \\`,
-          `  -f name=${VARIABLE} -f value=${latestRelease}`,
-        ].join("\n"),
+        message: `compatibility pin ${VARIABLE}=${pin} != latest engine release (${latestRelease})`,
+        remedy: `Unset ${VARIABLE} or set it to ${latestRelease}.`,
       });
     }
   }
 
-  if (
-    embedded !== undefined &&
-    latestRelease !== undefined &&
-    embedded !== stripV(latestRelease)
-  ) {
+  if (pin !== undefined && trackedRef !== undefined && isSemverRef(pin)) {
+    if (stripV(pin) !== stripV(trackedRef)) {
+      failures.push({
+        id: "pin-vs-tracked-ref",
+        message: `compatibility pin ${VARIABLE}=${pin} != tracked engine ref (${trackedRef})`,
+        remedy: `Unset ${VARIABLE} or set it to ${trackedRef}.`,
+      });
+    }
+  }
+
+  if (checksLatestRelease && refMismatch(trackedRef, latestRelease)) {
+    failures.push({
+      id: "tracked-ref-vs-latest-release",
+      message: `tracked engine ref (${trackedRef}) != latest engine release (${latestRelease})`,
+      remedy: [
+        `printf '%s\\n' '${latestRelease}' > ${TRACKED_REF_FILE}`,
+        `# then rebuild dist and package-lock against ${latestRelease}`,
+      ].join("\n"),
+    });
+  }
+
+  if (checksLatestRelease && refMismatch(embedded, latestRelease)) {
     failures.push({
       id: "embedded-vs-latest-release",
       message: `embedded lib version (${embedded}) != latest engine release (${latestRelease})`,
@@ -86,7 +144,14 @@ export function diagnose({ embedded, lockfile, localEngine, pin, latestRelease }
   return { ok: failures.length === 0, failures, notes };
 }
 
-async function gather(local) {
+function readTrackedRef(root) {
+  const refPath = resolve(root, TRACKED_REF_FILE);
+  if (!existsSync(refPath)) return undefined;
+  const ref = readFileSync(refPath, "utf8").trim();
+  return ref || undefined;
+}
+
+async function gather(mode) {
   const root = process.cwd();
   const versions = {};
 
@@ -97,14 +162,15 @@ async function gather(local) {
 
   const lock = JSON.parse(readFileSync(resolve(root, "package-lock.json"), "utf8"));
   versions.lockfile = lock.packages?.["../contributors-please"]?.version;
+  versions.trackedRef = readTrackedRef(root);
 
   const enginePkg = resolve(root, "../contributors-please/package.json");
   if (existsSync(enginePkg)) {
     versions.localEngine = JSON.parse(readFileSync(enginePkg, "utf8")).version;
   }
 
-  if (!local) {
-    versions.pin = process.env[VARIABLE] || (await fetchVariable());
+  if (mode !== "local") {
+    versions.pin = process.env[VARIABLE];
     versions.latestRelease = await fetchLatestRelease();
   }
 
@@ -122,15 +188,6 @@ async function githubApi(path) {
   return response.json();
 }
 
-async function fetchVariable() {
-  try {
-    const data = await githubApi(`/repos/${ACTION_REPO}/actions/variables/${VARIABLE}`);
-    return data.value;
-  } catch {
-    return undefined; // variable lookup needs a token; skip the pin check without one
-  }
-}
-
 async function fetchLatestRelease() {
   const data = await githubApi(`/repos/${ENGINE_REPO}/releases/latest`);
   return data.tag_name;
@@ -140,8 +197,9 @@ function report(versions, result) {
   const rows = [
     ["embedded lib version", versions.embedded],
     ["lockfile snapshot", versions.lockfile],
+    ["tracked engine ref", versions.trackedRef],
     ["../contributors-please checkout", versions.localEngine],
-    [`CI pin (${VARIABLE})`, versions.pin],
+    [`compatibility pin (${VARIABLE})`, versions.pin],
     ["latest engine release", versions.latestRelease],
   ].filter(([, value]) => value !== undefined);
 
@@ -185,9 +243,9 @@ const invokedDirectly =
   process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
 
 if (invokedDirectly) {
-  const local = process.argv.includes("--local");
-  const versions = await gather(local);
-  const result = diagnose(versions);
+  const mode = modeFromArgs(process.argv.slice(2));
+  const versions = await gather(mode);
+  const result = diagnose(versions, { mode });
   report(versions, result);
   process.exit(result.ok ? 0 : 1);
 }

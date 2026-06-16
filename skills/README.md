@@ -9,7 +9,7 @@ Claude Code skills for operating the `contributors-please` three-repo system
 |---|---|
 | [`install-contributors-please-action`](install-contributors-please-action/SKILL.md) | Onboarding a repo onto the action — workflow YAML, mode choice, credentials, loop protection, bootstrap |
 | [`monitor-multi-repo-ci`](monitor-multi-repo-ci/SKILL.md) | Watching or diagnosing the CI cascade — a stuck merge, a failed downstream suite, a workflow that never triggered, rate-limit errors |
-| [`update-multi-repo-ci`](update-multi-repo-ci/SKILL.md) | Changing/repairing CI plumbing and proving it — version bumps, the `CONTRIBUTORS_PLEASE_LIBRARY_REF` pin, dist rebuilds, the `sync-dist` fix, cross-repo dispatch |
+| [`update-multi-repo-ci`](update-multi-repo-ci/SKILL.md) | Changing/repairing CI plumbing and proving it — tracked engine ref bumps, dist rebuilds, the `sync-dist` fix, cross-repo dispatch |
 
 They compose: **monitor** diagnoses a failure → hands off to **update** for the fix → **install** is the standalone onboarding guide. **monitor** holds the shared topology and failure catalog the other two reference.
 

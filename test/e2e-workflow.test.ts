@@ -128,8 +128,10 @@ describe("E2E workflow", () => {
       /These secrets are configured in the `smorinlabs\/contributors-please-action`\s+repository/
     );
     expect(runbook).toContain("CONTRIBUTORS_PLEASE_LIBRARY_TOKEN");
-    expect(runbook).toContain("CONTRIBUTORS_PLEASE_LIBRARY_REF");
-    expect(runbook).toMatch(/otherwise\s+`main`/);
+    expect(runbook).toContain(".contributors-please-engine-ref");
+    expect(runbook).toContain("sync-engine-release.yml");
+    expect(runbook).not.toContain("vars.CONTRIBUTORS_PLEASE_LIBRARY_REF");
+    expect(runbook).not.toMatch(/otherwise\s+`main`/);
     expect(runbook).not.toContain("These secrets are configured in the test repository");
   });
 });

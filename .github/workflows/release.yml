@@ -13,27 +13,16 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Checkout local library dependency
-        uses: actions/checkout@v6
-        with:
-          repository: smorinlabs/contributors-please
-          ref: ${{ vars.CONTRIBUTORS_PLEASE_LIBRARY_REF || 'v1.0.0' }}
-          path: .deps/contributors-please
-          token: ${{ secrets.CONTRIBUTORS_PLEASE_LIBRARY_TOKEN || github.token }}
-          persist-credentials: false
-
-      - name: Link local library dependency
-        run: |
-          rm -rf ../contributors-please
-          ln -s "$PWD/.deps/contributors-please" ../contributors-please
-
-      - name: Install local library dependency
-        run: npm ci --prefix .deps/contributors-please
-
       - uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
+
+      - name: Setup local library dependency
+        env:
+          CONTRIBUTORS_PLEASE_LIBRARY_TOKEN: ${{ secrets.CONTRIBUTORS_PLEASE_LIBRARY_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/setup-engine-dep.mjs
 
       - name: Verify tag matches package version
         run: |
@@ -44,6 +33,7 @@ jobs:
           fi
 
       - run: npm ci
+      - run: npm run check:sync:release
       - run: npm test
       - run: npm run build
       - run: git diff --exit-code -- dist

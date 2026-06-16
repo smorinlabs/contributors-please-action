@@ -1,0 +1,129 @@
+name: sync-engine-release
+
+on:
+  repository_dispatch:
+    types:
+      - contributors-please-released
+  workflow_dispatch:
+    inputs:
+      engine_ref:
+        description: contributors-please release tag to sync
+        required: true
+        type: string
+      allow_prerelease:
+        description: allow prerelease engine tags
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: sync-engine-release
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      RP_CLIENT_ID: ${{ secrets.RELEASE_PLEASE_CLIENT_ID }}
+      RP_APP_ID: ${{ secrets.RELEASE_PLEASE_APP_ID }}
+      RP_PAT: ${{ secrets.RELEASE_PLEASE_APP_TOKEN }}
+    steps:
+      - name: Mint release-please app token (client-id)
+        id: app-token-client
+        if: ${{ env.RP_CLIENT_ID != '' }}
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.RELEASE_PLEASE_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_PLEASE_PRIVATE_KEY }}
+
+      - name: Mint release-please app token (app-id, deprecated)
+        id: app-token-app
+        if: ${{ env.RP_CLIENT_ID == '' && env.RP_APP_ID != '' }}
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.RELEASE_PLEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_PLEASE_PRIVATE_KEY }}
+
+      - name: Require PR-capable token
+        if: ${{ steps.app-token-client.outputs.token == '' && steps.app-token-app.outputs.token == '' && env.RP_PAT == '' }}
+        run: |
+          echo "Configure RELEASE_PLEASE_CLIENT_ID or RELEASE_PLEASE_APP_TOKEN so sync commits trigger PR checks." >&2
+          exit 1
+
+      - uses: actions/checkout@v6
+        with:
+          token: ${{ steps.app-token-client.outputs.token || steps.app-token-app.outputs.token || secrets.RELEASE_PLEASE_APP_TOKEN }}
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Prepare sync branch
+        id: sync
+        env:
+          ENGINE_REF: ${{ inputs.engine_ref || github.event.client_payload.engine_ref || github.event.client_payload.tag_name || github.event.client_payload.release.tag_name }}
+          ALLOW_PRERELEASE: ${{ inputs.allow_prerelease || 'false' }}
+        run: node scripts/sync-engine-release.mjs
+
+      - name: Setup local library dependency
+        env:
+          CONTRIBUTORS_PLEASE_LIBRARY_TOKEN: ${{ secrets.CONTRIBUTORS_PLEASE_LIBRARY_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/setup-engine-dep.mjs
+
+      - name: Install dependencies and update lockfile
+        run: npm install
+
+      - name: Build dist bundle
+        run: npm run build
+
+      - name: Check trusted engine sync
+        if: ${{ steps.sync.outputs.prerelease != 'true' }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: npm run check:sync:trusted
+
+      - name: Check prerelease engine sync
+        if: ${{ steps.sync.outputs.prerelease == 'true' }}
+        run: npm run check:sync:local
+
+      - name: Run tests
+        run: npm test
+
+      - name: Commit sync changes
+        id: commit
+        env:
+          GIT_AUTHOR_NAME: github-actions[bot]
+          GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: github-actions[bot]
+          GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+        run: |
+          if git diff --quiet -- .contributors-please-engine-ref package-lock.json dist/contributors-please-lib.js; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "engine sync already up to date"
+            exit 0
+          fi
+
+          git add .contributors-please-engine-ref package-lock.json dist/contributors-please-lib.js
+          git commit -m "${{ steps.sync.outputs.title }}"
+          git push --force-with-lease origin "HEAD:${{ steps.sync.outputs.branch }}"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Create or update sync PR
+        if: ${{ steps.commit.outputs.changed == 'true' }}
+        env:
+          GH_TOKEN: ${{ steps.app-token-client.outputs.token || steps.app-token-app.outputs.token || secrets.RELEASE_PLEASE_APP_TOKEN }}
+          BRANCH: ${{ steps.sync.outputs.branch }}
+          TITLE: ${{ steps.sync.outputs.title }}
+          BODY_PATH: ${{ steps.sync.outputs.body_path }}
+        run: |
+          if gh pr view "$BRANCH" --json number --jq .number > /tmp/sync-pr-number; then
+            gh pr edit "$(cat /tmp/sync-pr-number)" --title "$TITLE" --body-file "$BODY_PATH"
+          else
+            gh pr create --base main --head "$BRANCH" --title "$TITLE" --body-file "$BODY_PATH"
+          fi

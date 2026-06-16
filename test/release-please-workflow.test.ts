@@ -2,13 +2,13 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 
-describe("CI workflow", () => {
-  it("materializes the local contributors-please dependency before npm ci", async () => {
+describe("release-please workflow", () => {
+  it("sync-dist uses the tracked engine setup helper and local sync gate", async () => {
     const workflow = parse(
-      await readFile(".github/workflows/ci.yml", "utf8")
+      await readFile(".github/workflows/release-please.yml", "utf8")
     ) as {
       jobs: {
-        check: {
+        "sync-dist": {
           steps: Array<{
             name?: string;
             uses?: string;
@@ -19,7 +19,7 @@ describe("CI workflow", () => {
       };
     };
 
-    const steps = workflow.jobs.check.steps;
+    const steps = workflow.jobs["sync-dist"].steps;
     const dependencyCheckoutStep = steps.find(
       step =>
         step.uses === "actions/checkout@v6" &&
@@ -29,16 +29,18 @@ describe("CI workflow", () => {
       step => step.run === "node scripts/setup-engine-dep.mjs"
     );
     const npmCi = steps.findIndex(step => step.run === "npm ci");
-    const localSync = steps.findIndex(step => step.run === "npm run check:sync:local");
     const build = steps.findIndex(step => step.run === "npm run build");
+    const localSync = steps.findIndex(step => step.run === "npm run check:sync:local");
+    const commit = steps.findIndex(step => step.name === "Commit if changed");
 
     expect(dependencyCheckoutStep).toBeUndefined();
-    expect(dependencySetup).toBeGreaterThanOrEqual(0);
     expect(JSON.stringify(workflow)).not.toContain(
       "CONTRIBUTORS_PLEASE_LIBRARY_REF || 'main'"
     );
+    expect(dependencySetup).toBeGreaterThanOrEqual(0);
     expect(npmCi).toBeGreaterThan(dependencySetup);
-    expect(localSync).toBeGreaterThan(npmCi);
-    expect(build).toBeGreaterThan(localSync);
+    expect(build).toBeGreaterThan(npmCi);
+    expect(localSync).toBeGreaterThan(build);
+    expect(commit).toBeGreaterThan(localSync);
   });
 });

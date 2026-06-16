@@ -10,9 +10,11 @@
     "clean": "rm -rf dist coverage",
     "build": "rm -rf dist && ncc build src/index.ts -o dist && node scripts/copy-library.mjs && node scripts/normalize-dist.mjs",
     "test": "vitest run",
-    "check": "npm test && npm run build && git diff --exit-code -- dist",
+    "check": "npm test && npm run build && npm run check:sync:local && git diff --exit-code -- dist",
     "check:sync": "node scripts/check-engine-sync.mjs",
-    "check:sync:local": "node scripts/check-engine-sync.mjs --local"
+    "check:sync:local": "node scripts/check-engine-sync.mjs --local",
+    "check:sync:trusted": "node scripts/check-engine-sync.mjs --trusted",
+    "check:sync:release": "node scripts/check-engine-sync.mjs --release"
   },
   "dependencies": {
     "@actions/core": "^1.11.1",

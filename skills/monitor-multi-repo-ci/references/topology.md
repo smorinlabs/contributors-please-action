@@ -10,7 +10,7 @@
 
 ## Trigger edges
 
-1. **Engine release → action sync check.** Engine `publish.yml` runs on tag `v*.*.*`, publishes to npm, then sends `repository_dispatch` type **`contributors-please-released`** to the action repo, which runs `engine-sync.yml`.
+1. **Engine release → action sync.** Engine `publish.yml` runs on tag `v*.*.*`, publishes to npm, then sends `repository_dispatch` type **`contributors-please-released`** to the action repo. The action repo runs `engine-sync.yml` and `sync-engine-release.yml`; the latter opens or updates the action rebuild PR.
 2. **Action CI → downstream suite.** Action `ci.yml` runs on push/PR. On success, `downstream-e2e.yml` (trigger `workflow_run`) sends `repository_dispatch` type **`contributors-please-action-updated`** to the test repo, whose `action-downstream-suite.yml` fans out the `CP-GHA-*` suites.
 3. **Action release → E2E.** Merging the release-please PR tags the action; `release.yml`/`e2e.yml` run the action against the scratch repo `contributors-please-e2e`, and the `v1` major tag advances to the new release.
 
@@ -22,10 +22,10 @@ The action embeds a built copy of the engine, so four references must agree:
 |---|---|---|
 | 1 | embedded engine build | `VERSION` exported by `dist/contributors-please-lib.js` |
 | 2 | lockfile snapshot | `package-lock.json` → `"../contributors-please".version` |
-| 3 | CI pin | repo **variable** `CONTRIBUTORS_PLEASE_LIBRARY_REF` (what `ci.yml` checks out the engine at) |
+| 3 | tracked engine ref | `.contributors-please-engine-ref` |
 | 4 | latest engine release | GitHub releases on the engine repo |
 
-`scripts/check-engine-sync.mjs` (action repo) asserts these agree; `engine-sync.yml` runs it. When they drift, use the **update-multi-repo-ci** skill.
+`scripts/check-engine-sync.mjs` (action repo) asserts these agree; `engine-sync.yml` runs the trusted policy and `sync-engine-release.yml` opens the rebuild PR when latest moves. When they drift, use the **update-multi-repo-ci** skill.
 
 ## Suite taxonomy (test repo)
 
@@ -35,6 +35,7 @@ The action embeds a built copy of the engine, so four references must agree:
 
 ## Credentials / variables that gate the cascade
 
-- `CONTRIBUTORS_PLEASE_LIBRARY_REF` (action var) — engine ref CI builds against.
+- `.contributors-please-engine-ref` (tracked file) — engine release the action builds against.
+- `CONTRIBUTORS_PLEASE_LIBRARY_TOKEN` (action secret, optional) — read token for private/restricted engine clones.
 - `CONTRIBUTORS_PLEASE_ACTION_TOKEN` (engine secret) — used by `publish.yml` to checkout the action and to send the `contributors-please-released` dispatch.
 - `CONTRIBUTORS_PLEASE_TEST_DISPATCH_TOKEN` (action secret) — used by `downstream-e2e.yml` to dispatch the test suite.
