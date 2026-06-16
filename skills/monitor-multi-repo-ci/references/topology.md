@@ -29,9 +29,9 @@ The action embeds a built copy of the engine, so four references must agree:
 
 ## Suite taxonomy (test repo)
 
-- **Deterministic suites** (`auth-and-discovery`, `classification-and-state`, `rendering`, `modes-and-labels`, `outputs-selection-config`, `network-ghe-security`, `bootstrap-cli-api-build`, `acceptance-loopguards`): use **fake** APIs (local fixtures). This is the real gate.
+- **Deterministic suites** (`auth-and-discovery`, `classification-and-state`, `rendering`, `modes-and-labels`, `outputs-selection-config`, `network-ghe-security`, `bootstrap-cli-api-build`, `acceptance-loopguards`): use **fake** APIs (local fixtures) — reproducible, no rate-limit exposure.
   - `bootstrap-cli-api-build` contains **CP-GHA-038** (dist reproducibility) and **CP-GHA-044** (CLI/Action parity).
-- **Live suite** (`live-adoption`): hits **real** GitHub APIs against a scratch repo. Rate-limit-sensitive; treat setup-step failures as environmental.
+- **Live suite** (`live-adoption`): hits **real** GitHub APIs against a scratch repo; rate-limit-sensitive, so setup-step failures are usually environmental in *cause*. **It is still a blocking gate** (`contributors-please-test/CLAUDE.md`) — both the deterministic suites and `live-adoption` are watched with `--exit-status` and must pass.
 
 ## Credentials / variables that gate the cascade
 

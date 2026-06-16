@@ -52,7 +52,7 @@ Red suite/job
   └─ Failed inside a fake-API deterministic suite asserting behavior? ─▶ likely a REAL regression — investigate the change
 ```
 
-**Deterministic vs live suites:** the CP-GHA-* suites use *fake* APIs and are the real gate. `live-adoption` hits *real* GitHub APIs and is rate-limit-sensitive — a setup-step failure there is almost always environmental, not a regression. Don't let a flaky `live-adoption` mask or block a green deterministic gate.
+**Deterministic vs live suites:** the CP-GHA-* suites use *fake* APIs; `live-adoption` hits *real* GitHub APIs and is rate-limit-sensitive — a setup-step failure there is usually environmental, not a code regression. **But by policy (`contributors-please-test/CLAUDE.md`), `live-adoption` is a BLOCKING gate** — it is watched with `--exit-status` and a failure fails the downstream suite. Do **not** downgrade it to non-blocking / report-only to get green; root-cause the failure instead (reduce GraphQL calls / add backoff / dedicated token for the live suite). "Environmental" classifies the cause, not permission to ignore it.
 
 ## Rate limits (this bites constantly)
 
