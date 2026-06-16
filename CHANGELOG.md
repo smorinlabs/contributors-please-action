@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file. The format 
 
 Releases are managed by [release-please](https://github.com/googleapis/release-please) from conventional commits on `main`.
 
+## [1.3.4](https://github.com/smorinlabs/contributors-please-action/compare/v1.3.3...v1.3.4) (2026-06-16)
+
+
+### CI/CD
+
+* migrate e2e.yml from app-id to client-id ([#38](https://github.com/smorinlabs/contributors-please-action/issues/38)) ([86f325c](https://github.com/smorinlabs/contributors-please-action/commit/86f325cd0a73ee4560aea7a2d5b2714527e17a86))
+* probe RELEASE_PLEASE_CLIENT_ID auth path ([8ce051d](https://github.com/smorinlabs/contributors-please-action/commit/8ce051d94eb6ca1bbc0d75624ea0f2332a8c1e8d))
+
 ## [1.3.3](https://github.com/smorinlabs/contributors-please-action/compare/v1.3.2...v1.3.3) (2026-06-16)
 
 
