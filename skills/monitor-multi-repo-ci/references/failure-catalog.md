@@ -36,8 +36,9 @@ Each entry: **tell** (how to recognize), **cause**, **remedy**. Drawn from real 
 ## 6. `live-adoption` flake
 
 - **Tell:** `live-adoption` fails at a **setup** step ("Prepare clean live adoption baseline") with `GraphQL: API rate limit already exceeded for user ID NNN` — before any action logic runs.
-- **Cause:** The live suite uses the shared bot account's GraphQL quota, which heavy session activity (your own `gh` calls) can starve. Environmental, **not** a regression.
-- **Remedy:** Re-run after the GraphQL quota resets (~minutes); confirm the deterministic suites are green (they're the real gate). Don't block a release on this.
+- **Cause:** The live suite uses the shared bot account's GraphQL quota, which heavy session activity (your own `gh` calls) can starve. Usually environmental, **not** a code regression — but see policy below.
+- **Policy:** `live-adoption` is a **blocking** gate (`contributors-please-test/CLAUDE.md`) — watched with `--exit-status`; a failure fails the downstream suite. Do **not** make it non-blocking / `continue-on-error` to get green.
+- **Remedy:** Re-run after the GraphQL quota resets (~minutes). If it recurs, fix the **root cause** — reduce GraphQL calls in setup, add bounded retry/backoff, or provision a dedicated token/account for the live suite — rather than weakening the gate.
 
 ## 7. `sync-dist` job red on release PRs (FIXED in #29)
 
