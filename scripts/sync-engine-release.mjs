@@ -72,6 +72,7 @@ function readEventRef(eventPath) {
   const event = JSON.parse(readFileSync(eventPath, "utf8"));
   return (
     event.inputs?.engine_ref ||
+    event.client_payload?.version ||
     event.client_payload?.engine_ref ||
     event.client_payload?.tag_name ||
     event.client_payload?.release?.tag_name ||
@@ -79,7 +80,7 @@ function readEventRef(eventPath) {
   );
 }
 
-function resolveEngineRef(env = process.env) {
+export function resolveEngineRef(env = process.env) {
   return env.ENGINE_REF || env.INPUT_ENGINE_REF || readEventRef(env.GITHUB_EVENT_PATH);
 }
 

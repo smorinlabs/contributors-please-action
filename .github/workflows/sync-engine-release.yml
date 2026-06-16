@@ -66,7 +66,7 @@ jobs:
       - name: Prepare sync branch
         id: sync
         env:
-          ENGINE_REF: ${{ inputs.engine_ref || github.event.client_payload.engine_ref || github.event.client_payload.tag_name || github.event.client_payload.release.tag_name }}
+          ENGINE_REF: ${{ inputs.engine_ref || github.event.client_payload.version || github.event.client_payload.engine_ref || github.event.client_payload.tag_name || github.event.client_payload.release.tag_name }}
           ALLOW_PRERELEASE: ${{ inputs.allow_prerelease || 'false' }}
         run: node scripts/sync-engine-release.mjs
 

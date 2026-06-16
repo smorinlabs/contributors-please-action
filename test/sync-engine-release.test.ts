@@ -1,4 +1,6 @@
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 
@@ -6,6 +8,7 @@ import {
   isPrereleaseRef,
   plannedUpdateFiles,
   prTitle,
+  resolveEngineRef,
   syncBranchName,
   validateEngineRef,
 } from "../scripts/sync-engine-release.mjs";
@@ -36,6 +39,22 @@ describe("engine release sync automation", () => {
     ]);
   });
 
+  it("resolves the engine ref from the publish workflow dispatch version payload", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "sync-engine-release-"));
+    const eventPath = join(dir, "event.json");
+
+    try {
+      await writeFile(
+        eventPath,
+        JSON.stringify({ client_payload: { version: "v1.4.0" } })
+      );
+
+      expect(resolveEngineRef({ GITHUB_EVENT_PATH: eventPath })).toBe("v1.4.0");
+    } finally {
+      await rm(dir, { force: true, recursive: true });
+    }
+  });
+
   it("defines manual and engine release dispatch triggers", async () => {
     const workflow = parse(
       await readFile(".github/workflows/sync-engine-release.yml", "utf8")
@@ -44,7 +63,10 @@ describe("engine release sync automation", () => {
         repository_dispatch?: { types: string[] };
         workflow_dispatch?: { inputs: Record<string, unknown> };
       };
-      jobs: Record<string, { steps: Array<{ if?: string; run?: string }> }>;
+      jobs: Record<
+        string,
+        { steps: Array<{ env?: Record<string, string>; if?: string; run?: string }> }
+      >;
     };
 
     expect(workflow.on.repository_dispatch?.types).toContain(
@@ -52,8 +74,12 @@ describe("engine release sync automation", () => {
     );
     expect(workflow.on.workflow_dispatch?.inputs).toHaveProperty("engine_ref");
     const steps = Object.values(workflow.jobs).flatMap(job => job.steps);
-    expect(steps.some(step => step.run === "node scripts/sync-engine-release.mjs")).toBe(
-      true
+    const prepareSync = steps.find(
+      step => step.run === "node scripts/sync-engine-release.mjs"
+    );
+    expect(prepareSync).toBeDefined();
+    expect(prepareSync?.env?.ENGINE_REF).toContain(
+      "github.event.client_payload.version"
     );
     const trustedSync = steps.find(step => step.run === "npm run check:sync:trusted");
     const prereleaseSync = steps.find(step => step.run === "npm run check:sync:local");
