@@ -104,7 +104,7 @@ jobs:
           branch: main
           app-id: ${{ secrets.CONTRIBUTORS_PLEASE_CLIENT_ID }}
           private-key: ${{ secrets.CONTRIBUTORS_PLEASE_PRIVATE_KEY }}
-          pat: ${{ secrets.CONTRIBUTORS_PLEASE_CLIENT_ID == '' && secrets.CONTRIBUTORS_PLEASE_PAT || '' }}
+          pat: ${{ env.HAS_APP != 'true' && secrets.CONTRIBUTORS_PLEASE_PAT || '' }}
           mode: commit
           bootstrap: true
           output-file: CONTRIBUTORS.md
@@ -137,7 +137,7 @@ jobs:
           branch: main
           app-id: ${{ secrets.CONTRIBUTORS_PLEASE_CLIENT_ID }}
           private-key: ${{ secrets.CONTRIBUTORS_PLEASE_PRIVATE_KEY }}
-          pat: ${{ secrets.CONTRIBUTORS_PLEASE_CLIENT_ID == '' && secrets.CONTRIBUTORS_PLEASE_PAT || '' }}
+          pat: ${{ env.HAS_APP != 'true' && secrets.CONTRIBUTORS_PLEASE_PAT || '' }}
           mode: pull-request
           bootstrap: true
           output-file: CONTRIBUTORS.md
@@ -187,7 +187,7 @@ jobs:
           branch: main
           app-id: ${{ secrets.CONTRIBUTORS_PLEASE_CLIENT_ID }}
           private-key: ${{ secrets.CONTRIBUTORS_PLEASE_PRIVATE_KEY }}
-          pat: ${{ secrets.CONTRIBUTORS_PLEASE_CLIENT_ID == '' && secrets.CONTRIBUTORS_PLEASE_PAT || '' }}
+          pat: ${{ env.HAS_APP != 'true' && secrets.CONTRIBUTORS_PLEASE_PAT || '' }}
           mode: pull-request
           bootstrap: true
           output-file: CONTRIBUTORS.md
@@ -218,7 +218,7 @@ jobs:
           branch: main
           app-id: ${{ secrets.CONTRIBUTORS_PLEASE_CLIENT_ID }}
           private-key: ${{ secrets.CONTRIBUTORS_PLEASE_PRIVATE_KEY }}
-          pat: ${{ secrets.CONTRIBUTORS_PLEASE_CLIENT_ID == '' && secrets.CONTRIBUTORS_PLEASE_PAT || '' }}
+          pat: ${{ env.HAS_APP != 'true' && secrets.CONTRIBUTORS_PLEASE_PAT || '' }}
           mode: check
           dry-run: true
           output-file: CONTRIBUTORS.md

@@ -42,7 +42,7 @@ describe("E2E workflow", () => {
     expect(commitMode?.with).toMatchObject({
       mode: "commit",
       "app-id": "${{ secrets.CONTRIBUTORS_PLEASE_CLIENT_ID }}",
-      pat: "${{ secrets.CONTRIBUTORS_PLEASE_CLIENT_ID == '' && secrets.CONTRIBUTORS_PLEASE_PAT || '' }}",
+      pat: "${{ env.HAS_APP != 'true' && secrets.CONTRIBUTORS_PLEASE_PAT || '' }}",
     });
     expect(commitMode?.with).not.toHaveProperty("dry-run");
 
