@@ -27,22 +27,23 @@ jobs:
       TARGET_OWNER: ${{ inputs.target-owner || 'smorinlabs' }}
       TARGET_REPO: ${{ inputs.target-repo || 'contributors-please-e2e' }}
       ACTION_PATH: .github/actions/contributors-please-action
-      # The action accepts EITHER a GitHub App (app-id + private-key) OR a PAT.
-      # This suite auto-selects whichever is configured: App preferred, PAT
-      # fallback (matching the action's own resolveCredentials order).
-      HAS_APP: ${{ secrets.CONTRIBUTORS_PLEASE_APP_ID != '' && secrets.CONTRIBUTORS_PLEASE_PRIVATE_KEY != '' }}
-      EXPECTED_TOKEN_SOURCE: ${{ (secrets.CONTRIBUTORS_PLEASE_APP_ID != '' && secrets.CONTRIBUTORS_PLEASE_PRIVATE_KEY != '') && 'app' || 'pat' }}
+      # The action accepts EITHER a GitHub App (Client ID supplied via the
+      # `app-id` input + private-key) OR a PAT. This suite auto-selects
+      # whichever is configured: App preferred, PAT fallback (matching the
+      # action's own resolveCredentials order).
+      HAS_APP: ${{ secrets.CONTRIBUTORS_PLEASE_CLIENT_ID != '' && secrets.CONTRIBUTORS_PLEASE_PRIVATE_KEY != '' }}
+      EXPECTED_TOKEN_SOURCE: ${{ (secrets.CONTRIBUTORS_PLEASE_CLIENT_ID != '' && secrets.CONTRIBUTORS_PLEASE_PRIVATE_KEY != '') && 'app' || 'pat' }}
     steps:
       - name: Verify a credential mechanism is configured
         env:
-          APP_ID: ${{ secrets.CONTRIBUTORS_PLEASE_APP_ID }}
+          CLIENT_ID: ${{ secrets.CONTRIBUTORS_PLEASE_CLIENT_ID }}
           PRIVATE_KEY: ${{ secrets.CONTRIBUTORS_PLEASE_PRIVATE_KEY }}
           PAT: ${{ secrets.CONTRIBUTORS_PLEASE_PAT }}
         run: |
-          if { [ -n "$APP_ID" ] && [ -n "$PRIVATE_KEY" ]; } || [ -n "$PAT" ]; then
+          if { [ -n "$CLIENT_ID" ] && [ -n "$PRIVATE_KEY" ]; } || [ -n "$PAT" ]; then
             echo "Credential mechanism present; this run will use: ${EXPECTED_TOKEN_SOURCE}"
           else
-            echo "Configure either CONTRIBUTORS_PLEASE_APP_ID + CONTRIBUTORS_PLEASE_PRIVATE_KEY, or CONTRIBUTORS_PLEASE_PAT." >&2
+            echo "Configure either CONTRIBUTORS_PLEASE_CLIENT_ID + CONTRIBUTORS_PLEASE_PRIVATE_KEY, or CONTRIBUTORS_PLEASE_PAT." >&2
             exit 1
           fi
 
@@ -51,7 +52,7 @@ jobs:
         if: ${{ env.HAS_APP == 'true' }}
         uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ secrets.CONTRIBUTORS_PLEASE_APP_ID }}
+          client-id: ${{ secrets.CONTRIBUTORS_PLEASE_CLIENT_ID }}
           private-key: ${{ secrets.CONTRIBUTORS_PLEASE_PRIVATE_KEY }}
           owner: ${{ env.TARGET_OWNER }}
           repositories: ${{ env.TARGET_REPO }}
@@ -101,9 +102,9 @@ jobs:
         with:
           repository: ${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }}
           branch: main
-          app-id: ${{ secrets.CONTRIBUTORS_PLEASE_APP_ID }}
+          app-id: ${{ secrets.CONTRIBUTORS_PLEASE_CLIENT_ID }}
           private-key: ${{ secrets.CONTRIBUTORS_PLEASE_PRIVATE_KEY }}
-          pat: ${{ secrets.CONTRIBUTORS_PLEASE_APP_ID == '' && secrets.CONTRIBUTORS_PLEASE_PAT || '' }}
+          pat: ${{ secrets.CONTRIBUTORS_PLEASE_CLIENT_ID == '' && secrets.CONTRIBUTORS_PLEASE_PAT || '' }}
           mode: commit
           bootstrap: true
           output-file: CONTRIBUTORS.md
@@ -134,9 +135,9 @@ jobs:
         with:
           repository: ${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }}
           branch: main
-          app-id: ${{ secrets.CONTRIBUTORS_PLEASE_APP_ID }}
+          app-id: ${{ secrets.CONTRIBUTORS_PLEASE_CLIENT_ID }}
           private-key: ${{ secrets.CONTRIBUTORS_PLEASE_PRIVATE_KEY }}
-          pat: ${{ secrets.CONTRIBUTORS_PLEASE_APP_ID == '' && secrets.CONTRIBUTORS_PLEASE_PAT || '' }}
+          pat: ${{ secrets.CONTRIBUTORS_PLEASE_CLIENT_ID == '' && secrets.CONTRIBUTORS_PLEASE_PAT || '' }}
           mode: pull-request
           bootstrap: true
           output-file: CONTRIBUTORS.md
@@ -184,9 +185,9 @@ jobs:
         with:
           repository: ${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }}
           branch: main
-          app-id: ${{ secrets.CONTRIBUTORS_PLEASE_APP_ID }}
+          app-id: ${{ secrets.CONTRIBUTORS_PLEASE_CLIENT_ID }}
           private-key: ${{ secrets.CONTRIBUTORS_PLEASE_PRIVATE_KEY }}
-          pat: ${{ secrets.CONTRIBUTORS_PLEASE_APP_ID == '' && secrets.CONTRIBUTORS_PLEASE_PAT || '' }}
+          pat: ${{ secrets.CONTRIBUTORS_PLEASE_CLIENT_ID == '' && secrets.CONTRIBUTORS_PLEASE_PAT || '' }}
           mode: pull-request
           bootstrap: true
           output-file: CONTRIBUTORS.md
@@ -215,9 +216,9 @@ jobs:
         with:
           repository: ${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }}
           branch: main
-          app-id: ${{ secrets.CONTRIBUTORS_PLEASE_APP_ID }}
+          app-id: ${{ secrets.CONTRIBUTORS_PLEASE_CLIENT_ID }}
           private-key: ${{ secrets.CONTRIBUTORS_PLEASE_PRIVATE_KEY }}
-          pat: ${{ secrets.CONTRIBUTORS_PLEASE_APP_ID == '' && secrets.CONTRIBUTORS_PLEASE_PAT || '' }}
+          pat: ${{ secrets.CONTRIBUTORS_PLEASE_CLIENT_ID == '' && secrets.CONTRIBUTORS_PLEASE_PAT || '' }}
           mode: check
           dry-run: true
           output-file: CONTRIBUTORS.md

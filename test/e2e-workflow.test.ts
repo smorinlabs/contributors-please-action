@@ -36,10 +36,13 @@ describe("E2E workflow", () => {
     );
 
     // App-preferred with automatic PAT fallback (configured with either).
+    // The action's `app-id` input accepts a GitHub App Client ID
+    // (e.g. Iv23li...) as well as a numeric App ID; this workflow feeds
+    // CONTRIBUTORS_PLEASE_CLIENT_ID through it.
     expect(commitMode?.with).toMatchObject({
       mode: "commit",
-      "app-id": "${{ secrets.CONTRIBUTORS_PLEASE_APP_ID }}",
-      pat: "${{ secrets.CONTRIBUTORS_PLEASE_APP_ID == '' && secrets.CONTRIBUTORS_PLEASE_PAT || '' }}",
+      "app-id": "${{ secrets.CONTRIBUTORS_PLEASE_CLIENT_ID }}",
+      pat: "${{ secrets.CONTRIBUTORS_PLEASE_CLIENT_ID == '' && secrets.CONTRIBUTORS_PLEASE_PAT || '' }}",
     });
     expect(commitMode?.with).not.toHaveProperty("dry-run");
 
