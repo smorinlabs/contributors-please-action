@@ -39,11 +39,17 @@ Each entry: **tell** (how to recognize), **cause**, **remedy**. Drawn from real 
 - **Cause:** The live suite uses the shared bot account's GraphQL quota, which heavy session activity (your own `gh` calls) can starve. Environmental, **not** a regression.
 - **Remedy:** Re-run after the GraphQL quota resets (~minutes); confirm the deterministic suites are green (they're the real gate). Don't block a release on this.
 
-## 7. `sync-dist` job red on release PRs (known bug)
+## 7. `sync-dist` job red on release PRs (FIXED in #29)
 
 - **Tell:** `release-please` workflow: `release-please` job succeeds (PR created) but `sync-dist` job fails "Build dist bundle" with `TS2307: Cannot find module 'contributors-please'`.
-- **Cause:** `sync-dist` runs `npm ci && npm run build` without first checking out and linking `../contributors-please` like `ci.yml` does. Pre-existing; non-blocking (the release PR's dist is already correct from main).
-- **Remedy:** Add the engine checkout + symlink + `npm ci --prefix` steps before `npm run build`, mirroring `ci.yml`. → **update-multi-repo-ci** skill.
+- **Cause:** `sync-dist` ran `npm ci && npm run build` without first checking out and linking `../contributors-please` like `ci.yml` does.
+- **Status:** Fixed in #29 (engine checkout added) and hardened in #32 (`persist-credentials: false`). If it recurs, a build job lost the engine-setup steps — re-apply the `ci.yml` pattern. → **update-multi-repo-ci** playbook C.
+
+## 7b. PR fails `engine-sync` on stale dist (PR predates a dist rebuild)
+
+- **Tell:** A PR whose own diff is unrelated to `dist` fails `engine-sync` (or CI's `git diff --exit-code -- dist`), reporting `embedded lib version` *behind* the pin/latest release. CI and other checks pass.
+- **Cause:** The PR branch was created before a dist-rebuild merge (e.g. a pin bump + rebuild), so it still carries the old embedded `VERSION` while the pin now points at the newer engine. The failure is the stale branch, not the PR's change. (Real: #32, behind #33's v1.3.0 rebuild.)
+- **Remedy:** Update the PR branch with `main` — `gh api --method PUT repos/{repo}/pulls/{n}/update-branch` — which pulls in the rebuilt dist; checks re-run green. Then merge.
 
 ## 8. Engine-release self-drift
 

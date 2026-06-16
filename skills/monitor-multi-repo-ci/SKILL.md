@@ -84,7 +84,8 @@ Full diagnosis + remedy per failure mode in `references/failure-catalog.md`. Sum
 | Config-source conflict | `ConfigError: conflicting configuration for keys` | config |
 | GraphQL exhaustion | `gh pr` fails "rate limit"; `gh api` works | rate-limit |
 | live-adoption flake | live suite fails at setup w/ "rate limit … user ID" | environmental |
-| sync-dist red | release PR check fails build `TS2307` (no engine dep) | plumbing (known) |
+| sync-dist red | release PR check fails build `TS2307` (no engine dep) | plumbing (fixed #29; recurs if a build job drops engine setup) |
+| PR fails engine-sync on stale dist | PR predating a dist rebuild; embedded < pin/latest | plumbing (update the PR branch) |
 | Engine-release drift | after engine release, pin < latest | plumbing (use update-multi-repo-ci) |
 
 When the fix is a plumbing change, hand off to the **update-multi-repo-ci** skill.
