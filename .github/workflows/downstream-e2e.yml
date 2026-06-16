@@ -43,10 +43,21 @@ jobs:
       SOURCE_WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id || github.run_id }}
       WAIT_FOR_RESULT: ${{ github.event_name != 'workflow_dispatch' || inputs.wait }}
     steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.ACTION_REF }}
+
       - name: Verify dispatch token
         run: |
           set -euo pipefail
           test -n "${GH_TOKEN}"
+
+      - name: Read action engine ref
+        run: |
+          set -euo pipefail
+          LIBRARY_REF="$(tr -d '[:space:]' < .contributors-please-engine-ref)"
+          test -n "${LIBRARY_REF}"
+          echo "LIBRARY_REF=${LIBRARY_REF}" >> "$GITHUB_ENV"
 
       - name: Dispatch downstream suite
         run: |
@@ -54,6 +65,7 @@ jobs:
           gh api --method POST "repos/${TARGET_REPO}/dispatches" \
             -f event_type=contributors-please-action-updated \
             -f "client_payload[action_ref]=${ACTION_REF}" \
+            -f "client_payload[library_ref]=${LIBRARY_REF}" \
             -f "client_payload[source_repo]=${GITHUB_REPOSITORY}" \
             -f "client_payload[source_run_id]=${SOURCE_RUN_ID}" \
             -f "client_payload[source_workflow_run_id]=${SOURCE_WORKFLOW_RUN_ID}" \
@@ -66,6 +78,7 @@ jobs:
             echo "- target repo: ${TARGET_REPO}"
             echo "- target workflow: ${TARGET_WORKFLOW}"
             echo "- action ref: ${ACTION_REF}"
+            echo "- library ref: ${LIBRARY_REF}"
             echo "- source run id: ${SOURCE_RUN_ID}"
             echo "- source workflow run id: ${SOURCE_WORKFLOW_RUN_ID}"
           } >> "$GITHUB_STEP_SUMMARY"
