@@ -33,7 +33,7 @@ jobs:
 
       - uses: smorinlabs/contributors-please-action@v1
         with:
-          app-id: ${{ secrets.CONTRIBUTORS_PLEASE_APP_ID }}
+          app-id: ${{ secrets.CONTRIBUTORS_PLEASE_CLIENT_ID }}
           private-key: ${{ secrets.CONTRIBUTORS_PLEASE_PRIVATE_KEY }}
           pat: ${{ secrets.CONTRIBUTORS_PLEASE_PAT }}
           mode: pull-request

@@ -14,7 +14,7 @@ The E2E workflow can be run manually, runs nightly, and also runs for
   repository.
 - These secrets are configured in the `smorinlabs/contributors-please-action`
   repository, which runs the E2E workflow against the test repository:
-  - `CONTRIBUTORS_PLEASE_APP_ID`
+  - `CONTRIBUTORS_PLEASE_CLIENT_ID`
   - `CONTRIBUTORS_PLEASE_PRIVATE_KEY`
   - `CONTRIBUTORS_PLEASE_PAT`
 - If `smorinlabs/contributors-please` is private in a fork or restricted

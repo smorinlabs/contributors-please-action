@@ -9,7 +9,7 @@ Why preferred: commits are attributed to the App's bot identity, the token is sh
 Required inputs:
 
 ```yaml
-app-id: ${{ secrets.CONTRIBUTORS_PLEASE_APP_ID }}
+app-id: ${{ secrets.CONTRIBUTORS_PLEASE_CLIENT_ID }}
 private-key: ${{ secrets.CONTRIBUTORS_PLEASE_PRIVATE_KEY }}
 ```
 
@@ -35,7 +35,7 @@ Use the **`repo-secrets`** skill — it resolves the `release-please` and `contr
 ```
 
 Secret names the workflow template expects:
-- `CONTRIBUTORS_PLEASE_APP_ID`
+- `CONTRIBUTORS_PLEASE_CLIENT_ID`
 - `CONTRIBUTORS_PLEASE_PRIVATE_KEY`
 - `CONTRIBUTORS_PLEASE_PAT` (optional fallback)
 
