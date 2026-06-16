@@ -48,7 +48,7 @@ jobs:
           fetch-depth: 0          # REQUIRED — full history for commit discovery
       - uses: smorinlabs/contributors-please-action@v1
         with:
-          app-id: ${{ secrets.CONTRIBUTORS_PLEASE_APP_ID }}
+          app-id: ${{ secrets.CONTRIBUTORS_PLEASE_CLIENT_ID }}
           private-key: ${{ secrets.CONTRIBUTORS_PLEASE_PRIVATE_KEY }}
           pat: ${{ secrets.CONTRIBUTORS_PLEASE_PAT }}
           mode: pull-request
