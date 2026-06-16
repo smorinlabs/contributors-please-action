@@ -31,5 +31,9 @@ describe("Downstream E2E workflow", () => {
     expect(readEngineRef?.run).toContain("LIBRARY_REF=");
     expect(dispatch?.run).toContain("client_payload[library_ref]=${LIBRARY_REF}");
     expect(dispatch?.run).toContain("- library ref: ${LIBRARY_REF}");
+    expect(dispatch?.run).toContain("for attempt in 1 2 3");
+    expect(dispatch?.run).toContain("Repository dispatch API path: REST");
+    expect(dispatch?.run).toContain("Manual replay command:");
+    expect(dispatch?.run).toContain("sleep_seconds=$((attempt * 10))");
   });
 });

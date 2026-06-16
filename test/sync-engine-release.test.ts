@@ -85,5 +85,24 @@ describe("engine release sync automation", () => {
     const prereleaseSync = steps.find(step => step.run === "npm run check:sync:local");
     expect(trustedSync?.if).toContain("prerelease != 'true'");
     expect(prereleaseSync?.if).toContain("prerelease == 'true'");
+
+    const createOrUpdatePr = steps.find(
+      step => step.run?.includes("Sync PR lookup API path")
+    );
+    expect(createOrUpdatePr?.run).toContain(
+      'gh api --method GET "repos/${GITHUB_REPOSITORY}/pulls"'
+    );
+    expect(createOrUpdatePr?.run).toContain("Sync PR lookup API path: REST");
+    expect(createOrUpdatePr?.run).toContain("GraphQL fallback");
+    expect(createOrUpdatePr?.run).toContain("rate limit");
+    expect(createOrUpdatePr?.run).toContain('gh pr view "$BRANCH" --json number --jq .number');
+    expect(createOrUpdatePr?.run).toContain(
+      'gh api --method PATCH "repos/${GITHUB_REPOSITORY}/pulls/${pr_number}"'
+    );
+    expect(createOrUpdatePr?.run).toContain(
+      'gh api --method POST "repos/${GITHUB_REPOSITORY}/pulls"'
+    );
+    expect(createOrUpdatePr?.run).not.toContain("gh pr edit");
+    expect(createOrUpdatePr?.run).not.toContain("gh pr create");
   });
 });

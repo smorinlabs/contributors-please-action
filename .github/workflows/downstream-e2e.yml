@@ -62,15 +62,47 @@ jobs:
       - name: Dispatch downstream suite
         run: |
           set -euo pipefail
-          gh api --method POST "repos/${TARGET_REPO}/dispatches" \
-            -f event_type=contributors-please-action-updated \
-            -f "client_payload[action_ref]=${ACTION_REF}" \
-            -f "client_payload[library_ref]=${LIBRARY_REF}" \
-            -f "client_payload[source_repo]=${GITHUB_REPOSITORY}" \
-            -f "client_payload[source_run_id]=${SOURCE_RUN_ID}" \
-            -f "client_payload[source_workflow_run_id]=${SOURCE_WORKFLOW_RUN_ID}" \
-            -f "client_payload[source_sha]=${ACTION_REF}" \
-            -f "client_payload[source_workflow]=${GITHUB_WORKFLOW}"
+          dispatch_status=1
+
+          for attempt in 1 2 3; do
+            if gh api --method POST "repos/${TARGET_REPO}/dispatches" \
+              -f event_type=contributors-please-action-updated \
+              -f "client_payload[action_ref]=${ACTION_REF}" \
+              -f "client_payload[library_ref]=${LIBRARY_REF}" \
+              -f "client_payload[source_repo]=${GITHUB_REPOSITORY}" \
+              -f "client_payload[source_run_id]=${SOURCE_RUN_ID}" \
+              -f "client_payload[source_workflow_run_id]=${SOURCE_WORKFLOW_RUN_ID}" \
+              -f "client_payload[source_sha]=${ACTION_REF}" \
+              -f "client_payload[source_workflow]=${GITHUB_WORKFLOW}"; then
+              echo "Repository dispatch API path: REST"
+              dispatch_status=0
+              break
+            fi
+
+            dispatch_status=$?
+            if [[ "${attempt}" -lt 3 ]]; then
+              sleep_seconds=$((attempt * 10))
+              echo "Downstream dispatch attempt ${attempt} failed; retrying in ${sleep_seconds}s." >&2
+              sleep "${sleep_seconds}"
+            fi
+          done
+
+          if [[ "${dispatch_status}" -ne 0 ]]; then
+            {
+              echo "Failed to dispatch downstream suite for ${ACTION_REF}."
+              echo "Manual replay command:"
+              echo "gh api --method POST \"repos/${TARGET_REPO}/dispatches\" \\"
+              echo "  -f event_type=contributors-please-action-updated \\"
+              echo "  -f \"client_payload[action_ref]=${ACTION_REF}\" \\"
+              echo "  -f \"client_payload[library_ref]=${LIBRARY_REF}\" \\"
+              echo "  -f \"client_payload[source_repo]=${GITHUB_REPOSITORY}\" \\"
+              echo "  -f \"client_payload[source_run_id]=${SOURCE_RUN_ID}\" \\"
+              echo "  -f \"client_payload[source_workflow_run_id]=${SOURCE_WORKFLOW_RUN_ID}\" \\"
+              echo "  -f \"client_payload[source_sha]=${ACTION_REF}\" \\"
+              echo "  -f \"client_payload[source_workflow]=${GITHUB_WORKFLOW}\""
+            } >&2
+            exit "${dispatch_status}"
+          fi
 
           {
             echo "### Downstream E2E dispatch"

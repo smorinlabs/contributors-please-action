@@ -84,6 +84,56 @@ describe("E2E workflow", () => {
     expect(verifyLabel).toBeGreaterThan(reapplyLabel);
   });
 
+  it("uses REST-first pull request verification with bounded GraphQL fallback", async () => {
+    const workflow = parse(
+      await readFile(".github/workflows/e2e.yml", "utf8")
+    ) as {
+      jobs: {
+        "scratch-repo": {
+          steps: Array<{ name?: string; run?: string }>;
+        };
+      };
+    };
+    const steps = workflow.jobs["scratch-repo"].steps;
+    const verifyPullRequest = steps.find(
+      step => step.name === "Verify pull request and label"
+    );
+    const removeLabel = steps.find(
+      step => step.name === "Remove pending label before re-apply"
+    );
+    const verifyReapplied = steps.find(
+      step => step.name === "Verify label was re-applied"
+    );
+
+    expect(verifyPullRequest?.run).toContain(
+      'gh api --method GET "repos/${TARGET_OWNER}/${TARGET_REPO}/pulls/${PR_NUMBER}"'
+    );
+    expect(verifyPullRequest?.run).toContain(
+      'gh api --method GET "repos/${TARGET_OWNER}/${TARGET_REPO}/issues/${PR_NUMBER}"'
+    );
+    expect(verifyPullRequest?.run).toContain(
+      'gh api --method GET "repos/${TARGET_OWNER}/${TARGET_REPO}/pulls/${PR_NUMBER}/files"'
+    );
+    expect(verifyPullRequest?.run).toContain("Pull request verification API path: REST");
+    expect(verifyPullRequest?.run).toContain("GraphQL fallback");
+    expect(verifyPullRequest?.run).toContain("rate limit");
+    expect(verifyPullRequest?.run).toContain('gh pr view "$PR_NUMBER"');
+
+    expect(removeLabel?.run).toContain(
+      'gh api --method DELETE "repos/${TARGET_OWNER}/${TARGET_REPO}/issues/${PR_NUMBER}/labels/contributors-please:%20pending"'
+    );
+    expect(removeLabel?.run).toContain("Label removal API path: REST");
+    expect(removeLabel?.run).toContain("GraphQL fallback");
+    expect(removeLabel?.run).toContain('gh pr edit "$PR_NUMBER"');
+
+    expect(verifyReapplied?.run).toContain(
+      'gh api --method GET "repos/${TARGET_OWNER}/${TARGET_REPO}/issues/${PR_NUMBER}"'
+    );
+    expect(verifyReapplied?.run).toContain("Label verification API path: REST");
+    expect(verifyReapplied?.run).toContain("GraphQL fallback");
+    expect(verifyReapplied?.run).toContain('gh pr view "$PR_NUMBER"');
+  });
+
   it("defines a gated GitHub Enterprise smoke job", async () => {
     const workflow = parse(
       await readFile(".github/workflows/e2e.yml", "utf8")
