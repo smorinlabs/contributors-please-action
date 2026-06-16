@@ -33,21 +33,36 @@ On mismatch it prints the **exact** remediation command for the diverged pair. C
 - The variable is repo *settings* (not a file) — an authenticated API write, often permission-gated. Prefer a tagged release over `main` for reproducible CI.
 
 ### B. Rebuild dist after an engine release
-1. Check out `../contributors-please` at the new release tag (a sibling worktree resolves the `file:../contributors-please` path).
+**Do playbook A first.** The pin must already point at the new release before you open the rebuild PR — its CI builds the action against `CONTRIBUTORS_PLEASE_LIBRARY_REF`, so with a stale pin the PR rebuilds against the old engine and the `git diff --exit-code -- dist` gate fails on your own PR. Order: A (pin) → B (rebuild PR) → merge → release.
+
+1. Materialize the engine at the new release tag in the sibling dir `file:../contributors-please` expects. It may not exist (worktrees get cleaned up) — create it:
+   `git -C <engine-repo> worktree add --detach ../contributors-please vX.Y.Z` (path relative to the action checkout's parent). Confirm with `node -p "require('../contributors-please/package.json').version"`.
 2. `npm install && npm run build && npm test` in the action repo.
 3. Expect a small diff: the embedded `VERSION` literal in `dist/contributors-please-lib.js` and the lockfile snapshot.
-4. **Verify:** `npm run check:sync:local` passes; fresh-clone `npm ci && npm run build` leaves `git diff --exit-code -- dist` clean (this is what CP-GHA-038 enforces).
-5. Commit `dist` + `package-lock.json`; PR it.
+4. **Verify:** `npm run check:sync` passes (all four refs agree — needs the pin already bumped); fresh-clone `npm ci && npm run build` leaves `git diff --exit-code -- dist` clean (this is what CP-GHA-038 enforces).
+5. Commit `dist` + `package-lock.json`; PR it. Merge → release-please cuts the next patch release; merging that advances `@v1`.
 
-### C. Fix the `sync-dist` job (known bug)
-The `sync-dist` job in `release-please.yml` runs `npm run build` without materializing the engine dep, so it fails `TS2307`. Mirror `ci.yml`: before the build, add steps to checkout `smorinlabs/contributors-please` at `vars.CONTRIBUTORS_PLEASE_LIBRARY_REF` into `.deps/contributors-please`, symlink it to `../contributors-please`, and `npm ci --prefix .deps/contributors-please`.
-- **Verify:** the next release PR's `sync-dist` job is green.
+### C. Any workflow that builds the action must materialize the engine first
+This is the recurring lesson (it bit `ci.yml`, then `sync-dist`). `npm run build` (ncc) can't resolve `file:../contributors-please` unless the engine is checked out and linked. Mirror `ci.yml`: before the build, checkout `smorinlabs/contributors-please` at `vars.CONTRIBUTORS_PLEASE_LIBRARY_REF` into `.deps/contributors-please`, symlink it to `../contributors-please`, and `npm ci --prefix .deps/contributors-please`. On **read-only** engine checkouts set `persist-credentials: false` (security hardening — the build never pushes through that clone):
+
+```yaml
+- uses: actions/checkout@v6
+  with:
+    repository: smorinlabs/contributors-please
+    ref: ${{ vars.CONTRIBUTORS_PLEASE_LIBRARY_REF || 'main' }}
+    path: .deps/contributors-please
+    token: ${{ secrets.CONTRIBUTORS_PLEASE_LIBRARY_TOKEN || github.token }}
+    persist-credentials: false
+```
+
+The `sync-dist` job lacked this and failed `TS2307` on every release PR; fixed in #29, hardened with `persist-credentials: false` in #32. If you add a new build job, apply the same pattern.
+- **Verify:** the build job is green; the read-only checkout has `persist-credentials: false`.
 
 ### D. Engine-release decision (avoid self-inflicted drift)
 Releasing the engine moves "latest release" ahead of the action's pin, so `engine-sync` will (correctly) flag the action as stale, forcing a re-pin → rebuild (B) → re-release cycle. **Only release the engine when consumers need the new version.** A CI-only engine change (e.g. a dispatch step) does not need a release. If you do release, immediately follow with playbook A then B on the action.
 
 ### E. Add a cross-repo dispatch
-To make a downstream repo react to an upstream event, add a `gh api --method POST repos/{target}/dispatches -f event_type=<name>` step (reuse an existing cross-repo token; `continue-on-error: true` so it can't fail the upstream job), and a `repository_dispatch: { types: [<name>] }` trigger on the target workflow. Pattern in `publish.yml` (`contributors-please-released`) and `downstream-e2e.yml` (`contributors-please-action-updated`).
+To make a downstream repo react to an upstream event, add a `gh api --method POST repos/{target}/dispatches -f event_type=<name>` step (reuse an existing cross-repo token; `continue-on-error: true` so it can't fail the upstream job), and a `repository_dispatch: { types: [<name>] }` trigger on the target workflow. Pattern in `publish.yml` (`contributors-please-released`) and `downstream-e2e.yml` (`contributors-please-action-updated`). Set `persist-credentials: false` on any read-only checkout the dispatch step doesn't push through.
 
 ## Verify-before-claiming checklist
 
