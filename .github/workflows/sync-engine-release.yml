@@ -122,8 +122,50 @@ jobs:
           TITLE: ${{ steps.sync.outputs.title }}
           BODY_PATH: ${{ steps.sync.outputs.body_path }}
         run: |
-          if gh pr view "$BRANCH" --json number --jq .number > /tmp/sync-pr-number; then
-            gh pr edit "$(cat /tmp/sync-pr-number)" --title "$TITLE" --body-file "$BODY_PATH"
+          set -euo pipefail
+
+          is_rate_limit_error() {
+            grep -qiE 'rate limit|secondary rate|abuse detection' "$1"
+          }
+
+          lookup_sync_pr() {
+            local rest_error="/tmp/sync-pr-rest.err"
+            if gh api --method GET "repos/${GITHUB_REPOSITORY}/pulls" \
+              -f state=open \
+              -f "head=${GITHUB_REPOSITORY_OWNER}:${BRANCH}" \
+              -f per_page=1 \
+              --jq '.[0].number // empty' > /tmp/sync-pr-number 2>"${rest_error}"; then
+              echo "Sync PR lookup API path: REST"
+              return 0
+            fi
+
+            if is_rate_limit_error "${rest_error}"; then
+              echo "REST sync PR lookup hit a rate limit; using GraphQL fallback." >&2
+              gh pr view "$BRANCH" --json number --jq .number > /tmp/sync-pr-number
+              echo "Sync PR lookup API path: GraphQL fallback"
+              return 0
+            fi
+
+            cat "${rest_error}" >&2
+            return 1
+          }
+
+          lookup_sync_pr
+          pr_number="$(cat /tmp/sync-pr-number)"
+          body="$(cat "$BODY_PATH")"
+
+          if [[ -n "${pr_number}" ]]; then
+            gh api --method PATCH "repos/${GITHUB_REPOSITORY}/pulls/${pr_number}" \
+              -f title="$TITLE" \
+              -f body="$body" \
+              --jq .html_url
+            echo "Sync PR update API path: REST"
           else
-            gh pr create --base main --head "$BRANCH" --title "$TITLE" --body-file "$BODY_PATH"
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/pulls" \
+              -f base=main \
+              -f head="$BRANCH" \
+              -f title="$TITLE" \
+              -f body="$body" \
+              --jq .html_url
+            echo "Sync PR create API path: REST"
           fi
