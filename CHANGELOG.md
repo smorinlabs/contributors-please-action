@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file. The format 
 
 Releases are managed by [release-please](https://github.com/googleapis/release-please) from conventional commits on `main`.
 
+## [1.3.5](https://github.com/smorinlabs/contributors-please-action/compare/v1.3.4...v1.3.5) (2026-06-17)
+
+
+### Documentation
+
+* **ci:** document CONTRIBUTORS_PLEASE_TEST_DISPATCH_TOKEN purpose and scope ([#35](https://github.com/smorinlabs/contributors-please-action/issues/35)) ([568da22](https://github.com/smorinlabs/contributors-please-action/commit/568da228d46a360d3060e21dce3da6f2b51ee329))
+* **skills:** align monitor skill with live-adoption blocking policy ([#43](https://github.com/smorinlabs/contributors-please-action/issues/43)) ([7bb6238](https://github.com/smorinlabs/contributors-please-action/commit/7bb6238750782f07702fc13112eb02ef9ee017e0))
+* **skills:** mark sync-dist fixed and add multi-repo CI playbook hardening ([#42](https://github.com/smorinlabs/contributors-please-action/issues/42)) ([c1a1b47](https://github.com/smorinlabs/contributors-please-action/commit/c1a1b47930e4a62f6495097ffb4b587f225f842d))
+* update stale *_APP_ID references to *_CLIENT_ID ([#40](https://github.com/smorinlabs/contributors-please-action/issues/40)) ([b2a7a8b](https://github.com/smorinlabs/contributors-please-action/commit/b2a7a8b64cc2e2c3f4df0e6cb2090bd107f1cb57))
+
+
+### CI/CD
+
+* accept release dispatch version payload ([78e01ca](https://github.com/smorinlabs/contributors-please-action/commit/78e01cafa371ceed748a4e5db1f80d651c908012))
+* harden contributors-please engine sync ([9176dd1](https://github.com/smorinlabs/contributors-please-action/commit/9176dd1773e335e16e1c5ec3927ac5e11344be5d))
+* prefer REST for workflow PR operations ([ca864f8](https://github.com/smorinlabs/contributors-please-action/commit/ca864f8b65dd17f207ba4b20c3a8f64db200f910))
+* test downstream against declared engine ref ([fe72765](https://github.com/smorinlabs/contributors-please-action/commit/fe727656ea55d3fbd893cfb49b9861ee1ce338b9))
+
 ## [1.3.4](https://github.com/smorinlabs/contributors-please-action/compare/v1.3.3...v1.3.4) (2026-06-16)
 
 
