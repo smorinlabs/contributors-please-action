@@ -37,6 +37,13 @@ jobs:
     env:
       TARGET_REPO: smorinlabs/contributors-please-test
       TARGET_WORKFLOW: action-downstream-suite.yml
+      # Cross-repo token for the contributors-please-action-updated dispatch
+      # sent to TARGET_REPO (smorinlabs/contributors-please-test) below.
+      # Requires contents: write on that repo and has no fallback — github.token
+      # cannot dispatch cross-repo. The "Verify dispatch token" step fails fast
+      # if it is unset. Distinct from CONTRIBUTORS_PLEASE_ACTION_TOKEN in the
+      # library repo, which dispatches in the opposite direction (library ->
+      # action).
       GH_TOKEN: ${{ secrets.CONTRIBUTORS_PLEASE_TEST_DISPATCH_TOKEN }}
       ACTION_REF: ${{ github.event.workflow_run.head_sha || inputs.action_ref || github.sha }}
       SOURCE_RUN_ID: ${{ github.run_id }}
