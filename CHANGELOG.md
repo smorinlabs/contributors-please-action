@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file. The format 
 
 Releases are managed by [release-please](https://github.com/googleapis/release-please) from conventional commits on `main`.
 
+## [1.3.9](https://github.com/smorinlabs/contributors-please-action/compare/v1.3.8...v1.3.9) (2026-06-17)
+
+
+### Bug Fixes
+
+* **ci:** emit fix(deps): for engine-sync PRs so they trigger a release ([#52](https://github.com/smorinlabs/contributors-please-action/issues/52)) ([6725218](https://github.com/smorinlabs/contributors-please-action/commit/6725218dd7cd11ebcbcc768e2a1903ef4f1c0d36))
+* **deps:** sync contributors-please v1.4.3 ([#54](https://github.com/smorinlabs/contributors-please-action/issues/54)) ([f3e1a11](https://github.com/smorinlabs/contributors-please-action/commit/f3e1a118ffdb4791a754855d5f7d3b359b4be999))
+
 ## [1.3.8](https://github.com/smorinlabs/contributors-please-action/compare/v1.3.7...v1.3.8) (2026-06-17)
 
 
