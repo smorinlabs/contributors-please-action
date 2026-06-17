@@ -21,6 +21,14 @@ on:
         required: false
         default: true
         type: boolean
+      suite_scope:
+        description: Downstream validation lane (fast = PR/ref subset, full = release).
+        required: false
+        default: full
+        type: choice
+        options:
+          - full
+          - fast
 
 permissions:
   contents: read
@@ -40,12 +48,22 @@ jobs:
       GH_TOKEN: ${{ secrets.CONTRIBUTORS_PLEASE_TEST_DISPATCH_TOKEN }}
       ACTION_REF: ${{ github.event.workflow_run.head_sha || inputs.action_ref || github.sha }}
       SOURCE_RUN_ID: ${{ github.run_id }}
+      SOURCE_REPO: ${{ github.repository }}
       SOURCE_WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id || github.run_id }}
+      SOURCE_WORKFLOW: ${{ github.workflow }}
       WAIT_FOR_RESULT: ${{ github.event_name != 'workflow_dispatch' || inputs.wait }}
+      # Lane selector (Task 9): release/main propagation defaults to the full lane;
+      # explicit PR/ref validation can pass fast. Default full preserves behavior.
+      SUITE_SCOPE: ${{ inputs.suite_scope || 'full' }}
+      REPLAY_PATH: downstream-e2e-replay.json
     steps:
       - uses: actions/checkout@v6
         with:
           ref: ${{ env.ACTION_REF }}
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
 
       - name: Verify dispatch token
         run: |
@@ -59,94 +77,14 @@ jobs:
           test -n "${LIBRARY_REF}"
           echo "LIBRARY_REF=${LIBRARY_REF}" >> "$GITHUB_ENV"
 
+      # Dispatch behavior (validate, retry, replay artifact) is unit-tested in
+      # test/dispatch-downstream-suite.test.ts. SOURCE_SHA mirrors ACTION_REF, as the
+      # previous inline step did.
       - name: Dispatch downstream suite
-        run: |
-          set -euo pipefail
-          dispatch_status=1
-
-          for attempt in 1 2 3; do
-            if gh api --method POST "repos/${TARGET_REPO}/dispatches" \
-              -f event_type=contributors-please-action-updated \
-              -f "client_payload[action_ref]=${ACTION_REF}" \
-              -f "client_payload[library_ref]=${LIBRARY_REF}" \
-              -f "client_payload[source_repo]=${GITHUB_REPOSITORY}" \
-              -f "client_payload[source_run_id]=${SOURCE_RUN_ID}" \
-              -f "client_payload[source_workflow_run_id]=${SOURCE_WORKFLOW_RUN_ID}" \
-              -f "client_payload[source_sha]=${ACTION_REF}" \
-              -f "client_payload[source_workflow]=${GITHUB_WORKFLOW}"; then
-              echo "Repository dispatch API path: REST"
-              dispatch_status=0
-              break
-            fi
-
-            dispatch_status=$?
-            if [[ "${attempt}" -lt 3 ]]; then
-              sleep_seconds=$((attempt * 10))
-              echo "Downstream dispatch attempt ${attempt} failed; retrying in ${sleep_seconds}s." >&2
-              sleep "${sleep_seconds}"
-            fi
-          done
-
-          if [[ "${dispatch_status}" -ne 0 ]]; then
-            {
-              echo "Failed to dispatch downstream suite for ${ACTION_REF}."
-              echo "Manual replay command:"
-              echo "gh api --method POST \"repos/${TARGET_REPO}/dispatches\" \\"
-              echo "  -f event_type=contributors-please-action-updated \\"
-              echo "  -f \"client_payload[action_ref]=${ACTION_REF}\" \\"
-              echo "  -f \"client_payload[library_ref]=${LIBRARY_REF}\" \\"
-              echo "  -f \"client_payload[source_repo]=${GITHUB_REPOSITORY}\" \\"
-              echo "  -f \"client_payload[source_run_id]=${SOURCE_RUN_ID}\" \\"
-              echo "  -f \"client_payload[source_workflow_run_id]=${SOURCE_WORKFLOW_RUN_ID}\" \\"
-              echo "  -f \"client_payload[source_sha]=${ACTION_REF}\" \\"
-              echo "  -f \"client_payload[source_workflow]=${GITHUB_WORKFLOW}\""
-            } >&2
-            exit "${dispatch_status}"
-          fi
-
-          {
-            echo "### Downstream E2E dispatch"
-            echo ""
-            echo "- target repo: ${TARGET_REPO}"
-            echo "- target workflow: ${TARGET_WORKFLOW}"
-            echo "- action ref: ${ACTION_REF}"
-            echo "- library ref: ${LIBRARY_REF}"
-            echo "- source run id: ${SOURCE_RUN_ID}"
-            echo "- source workflow run id: ${SOURCE_WORKFLOW_RUN_ID}"
-          } >> "$GITHUB_STEP_SUMMARY"
+        env:
+          SOURCE_SHA: ${{ env.ACTION_REF }}
+        run: node scripts/dispatch-downstream-suite.mjs
 
       - name: Wait for downstream suite
-        run: |
-          set -euo pipefail
-
-          if [[ "${WAIT_FOR_RESULT}" != "true" ]]; then
-            echo "Skipping downstream wait because wait=false."
-            exit 0
-          fi
-
-          run_id=""
-          for _ in {1..90}; do
-            run_id="$(
-              gh run list \
-                --repo "${TARGET_REPO}" \
-                --workflow "${TARGET_WORKFLOW}" \
-                --limit 50 \
-                --json databaseId,displayTitle,status \
-                --jq ".[] | select(.displayTitle | contains(\"source-run ${SOURCE_RUN_ID}\")) | .databaseId" \
-                | head -n 1
-            )"
-
-            if [[ -n "${run_id}" ]]; then
-              break
-            fi
-
-            sleep 10
-          done
-
-          if [[ -z "${run_id}" ]]; then
-            echo "Could not find downstream suite run for source run ${SOURCE_RUN_ID}" >&2
-            exit 1
-          fi
-
-          echo "- target run: https://github.com/${TARGET_REPO}/actions/runs/${run_id}" >> "$GITHUB_STEP_SUMMARY"
-          gh run watch "${run_id}" --repo "${TARGET_REPO}" --exit-status --interval 15
+        if: ${{ env.WAIT_FOR_RESULT == 'true' }}
+        run: node scripts/wait-downstream-suite.mjs

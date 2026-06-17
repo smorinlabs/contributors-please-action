@@ -95,6 +95,75 @@ Run this on a fresh fork or throwaway branch of
 - If `changed` is true on a manual re-run with no source changes, inspect the
   `.contributors.jsonl` diff for non-idempotent fields before tagging v1.
 
+## Scratch Repository Reset (live legs)
+
+The live legs (`e2e.yml`, `contributors-please-test/.github/workflows/live-adoption.yml`)
+mutate the scratch repo `smorinlabs/contributors-please-e2e`: they open a
+`contributors-please/update` PR, push a branch, and apply the
+`contributors-please: pending` label. Each workflow now runs an `if: always()`
+teardown that closes the PR and deletes the branch, so a failed run self-cleans.
+
+Manual reset if a run is interrupted before teardown (e.g. cancelled):
+
+```bash
+export GH_TOKEN=...   # CONTRIBUTORS_PLEASE_E2E_TOKEN or an App token
+repo=smorinlabs/contributors-please-e2e
+gh api --method GET "repos/${repo}/pulls" -f state=open \
+  -f head="smorinlabs:contributors-please/update" --jq '.[].number' \
+  | while read -r pr; do gh api --method PATCH "repos/${repo}/pulls/${pr}" -f state=closed; done
+git -C <scratch-clone> push origin --delete contributors-please/update || true
+```
+
+Note: synthetic `main`-branch fixtures (`src/e2e-*`, `docs/`, `tests/`,
+`live-fixtures/*`) accumulate over runs and are not pruned by teardown. A scheduled
+GC (reset scratch `main` to a pinned baseline) is a tracked follow-up — see the
+resilience fix plan, FP-1.4 (b). The release-propagation checker is read-only and
+does not reset scratch state.
+
+## Release Propagation Check
+
+`scripts/check-release-propagation.mjs` is a read-only checker that explains where a
+release currently stands across npm, the engine tag/release, the action sync PR/main,
+and downstream runs — turning expected intermediate "reds" into named states
+(`no-tag`, `tagged-not-published`, `published-no-github-release`,
+`github-release-no-action-dispatch`, `action-sync-pr-open`, `action-main-stale`,
+`downstream-running`, `complete`).
+
+```bash
+XDG_CACHE_HOME=/private/tmp/gh-cache node scripts/check-release-propagation.mjs --version v1.3.1
+# JSON for artifacts / scripting:
+node scripts/check-release-propagation.mjs --version v1.3.1 --json
+```
+
+`complete` means the engine ref is published and the action main is **at least** the
+requested version (not strict equality), so an older fully-propagated release is not
+reported incomplete after main advances. State classification is unit-tested in
+`test/check-release-propagation.test.ts`.
+
+## Downstream Validation Lanes
+
+The downstream suite accepts a `suite_scope` selector (Task 9), plumbed from
+`downstream-e2e.yml` → the dispatch payload → `action-downstream-suite.yml`:
+
+- `full` (default) — release/main propagation: all grouped downstream suites, live
+  adoption side effects, generated-artifact semantic checks, and the release
+  propagation manifest. Omitting `suite_scope` selects `full`, so release validation
+  stays comprehensive.
+- `fast` — explicit PR/ref validation: bundle reproducibility, the action-declared
+  engine-ref check, one `uses:` live smoke, and the downstream dispatch/wait contract.
+
+Select a lane on a manual dispatch:
+
+```bash
+gh workflow run downstream-e2e.yml --repo smorinlabs/contributors-please-action \
+  --ref main -f action_ref=main -f suite_scope=fast
+```
+
+The lane value is validated (`fast`|`full`) in `scripts/dispatch-downstream-suite.mjs`
+(`normalizeSuiteScope`, unit-tested). Per-suite job gating on `SUITE_SCOPE` within
+`action-downstream-suite.yml` is tuned live against the running suite; the selector
+and its propagation are wired and default to `full`.
+
 ## Engine Sync Check
 
 The action must stay in sync with the `contributors-please` engine across four
