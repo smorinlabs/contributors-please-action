@@ -41,7 +41,7 @@ export function syncBranchName(ref) {
 }
 
 export function prTitle(ref) {
-  return `chore: sync contributors-please ${validateEngineRef(ref, { allowPrerelease: true })}`;
+  return `fix(deps): sync contributors-please ${validateEngineRef(ref, { allowPrerelease: true })}`;
 }
 
 export function plannedUpdateFiles() {

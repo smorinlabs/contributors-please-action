@@ -28,7 +28,7 @@ describe("engine release sync automation", () => {
   });
 
   it("generates a stable pull request title", () => {
-    expect(prTitle("v1.4.0")).toBe("chore: sync contributors-please v1.4.0");
+    expect(prTitle("v1.4.0")).toBe("fix(deps): sync contributors-please v1.4.0");
   });
 
   it("plans the files that must change during an engine sync", () => {
