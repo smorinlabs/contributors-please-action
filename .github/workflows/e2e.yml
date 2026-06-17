@@ -148,64 +148,37 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.CONTRIBUTORS_PLEASE_PAT }}
           PR_NUMBER: ${{ steps.pull-request-mode.outputs.pr-number }}
+          OUT_PATH: /tmp/pull-request.json
         run: |
           set -euo pipefail
           test -n "$PR_NUMBER"
 
-          is_rate_limit_error() {
-            grep -qiE 'rate limit|secondary rate|abuse detection' "$1"
-          }
+          # REST-first PR snapshot with a bounded GraphQL fallback. The fallback
+          # control flow and snapshot shape are unit-tested in
+          # test/e2e-pr-snapshot.test.ts and test/github-api.test.ts; this workflow no
+          # longer owns that REST/GraphQL block inline. The scratch repo is checked
+          # out at the workspace root, so the script lives under ${ACTION_PATH}.
+          node "${ACTION_PATH}/scripts/e2e-pr-snapshot.mjs"
 
-          verify_with_rest() {
-            local rest_error="/tmp/pull-request-verification-rest.err"
-            if gh api --method GET "repos/${TARGET_OWNER}/${TARGET_REPO}/pulls/${PR_NUMBER}" \
-              > /tmp/pull-request-core.json 2>"${rest_error}" &&
-              gh api --method GET "repos/${TARGET_OWNER}/${TARGET_REPO}/issues/${PR_NUMBER}" \
-                > /tmp/pull-request-issue.json 2>>"${rest_error}" &&
-              gh api --method GET "repos/${TARGET_OWNER}/${TARGET_REPO}/pulls/${PR_NUMBER}/files" \
-                -f per_page=100 \
-                > /tmp/pull-request-files.json 2>>"${rest_error}"; then
-              echo "Pull request verification API path: REST"
-              node <<'NODE'
+          node <<'NODE'
           const fs = require("node:fs");
-          const issue = JSON.parse(fs.readFileSync("/tmp/pull-request-issue.json", "utf8"));
-          const files = JSON.parse(fs.readFileSync("/tmp/pull-request-files.json", "utf8"));
-          const hasPendingLabel = issue.labels.some(label => label.name === "contributors-please: pending");
-          const filePaths = files.map(file => file.filename).sort();
+          const snapshot = JSON.parse(fs.readFileSync(process.env.OUT_PATH, "utf8"));
+          const hasPendingLabel = snapshot.labels.some(label => label.name === "contributors-please: pending");
+          const filePaths = snapshot.files.map(file => file.path).sort();
           const expectedFiles = [".contributors.jsonl", "CONTRIBUTORS.md"];
-          if (!hasPendingLabel || JSON.stringify(filePaths) !== JSON.stringify(expectedFiles)) {
-            process.exit(1);
+          if (!hasPendingLabel) {
+            throw new Error("missing contributors-please: pending label");
+          }
+          if (JSON.stringify(filePaths) !== JSON.stringify(expectedFiles)) {
+            throw new Error(`unexpected files: ${JSON.stringify(filePaths)}`);
+          }
+          if (snapshot.headRefName !== "contributors-please/update") {
+            throw new Error(`unexpected head ref: ${snapshot.headRefName}`);
+          }
+          if (snapshot.state !== "open") {
+            throw new Error(`unexpected state: ${snapshot.state}`);
           }
           NODE
-              return 0
-            fi
-
-            if is_rate_limit_error "${rest_error}"; then
-              return 2
-            fi
-
-            cat "${rest_error}" >&2
-            return 1
-          }
-
-          set +e
-          verify_with_rest
-          verify_status=$?
-          set -e
-
-          if [[ "${verify_status}" -eq 2 ]]; then
-            echo "Pull request verification REST hit a rate limit; using GraphQL fallback." >&2
-            gh pr view "$PR_NUMBER" \
-              --repo "$TARGET_OWNER/$TARGET_REPO" \
-              --json labels,files \
-              --jq '
-                (.labels | map(.name) | index("contributors-please: pending")) and
-                ([.files[].path] | sort == [".contributors.jsonl", "CONTRIBUTORS.md"])
-              ' | grep '^true$'
-            echo "Pull request verification API path: GraphQL fallback"
-          elif [[ "${verify_status}" -ne 0 ]]; then
-            exit "${verify_status}"
-          fi
 
       - name: Remove pending label before re-apply
         env:
@@ -329,6 +302,30 @@ jobs:
         run: |
           test "${{ steps.check-mode.outputs.token-source }}" = "$EXPECTED_TOKEN_SOURCE"
           test "${{ steps.check-mode.outputs.changed }}" = "false"
+
+      # BR1: teardown so a mid-run failure does not leave an open PR / branch behind
+      # until the next dispatch. Runs on success and failure; failures are logged.
+      - name: Teardown scratch pull request and branch
+        if: ${{ always() }}
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.CONTRIBUTORS_PLEASE_PAT }}
+        run: |
+          set -uo pipefail
+          teardown_status=0
+          open_prs="$(gh api --method GET "repos/${TARGET_OWNER}/${TARGET_REPO}/pulls" \
+            -f state=open \
+            -f head="${TARGET_OWNER}:contributors-please/update" \
+            --jq '.[].number' 2>&1)" || { echo "Teardown: failed to list PRs: ${open_prs}" >&2; teardown_status=1; open_prs=""; }
+          for pr_number in ${open_prs}; do
+            if ! gh api --method PATCH "repos/${TARGET_OWNER}/${TARGET_REPO}/pulls/${pr_number}" \
+              -f state=closed >/dev/null 2>&1; then
+              echo "Teardown: failed to close PR #${pr_number}" >&2
+              teardown_status=1
+            fi
+          done
+          git push origin --delete contributors-please/update 2>/dev/null \
+            || echo "Teardown: branch contributors-please/update already absent or delete failed" >&2
+          exit "${teardown_status}"
 
   github-enterprise-smoke:
     if: ${{ vars.GHE_SERVER_URL != '' && vars.GHE_TARGET_OWNER != '' && vars.GHE_TARGET_REPO != '' }}

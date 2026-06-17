@@ -105,19 +105,13 @@ describe("E2E workflow", () => {
       step => step.name === "Verify label was re-applied"
     );
 
-    expect(verifyPullRequest?.run).toContain(
-      'gh api --method GET "repos/${TARGET_OWNER}/${TARGET_REPO}/pulls/${PR_NUMBER}"'
-    );
-    expect(verifyPullRequest?.run).toContain(
-      'gh api --method GET "repos/${TARGET_OWNER}/${TARGET_REPO}/issues/${PR_NUMBER}"'
-    );
-    expect(verifyPullRequest?.run).toContain(
-      'gh api --method GET "repos/${TARGET_OWNER}/${TARGET_REPO}/pulls/${PR_NUMBER}/files"'
-    );
-    expect(verifyPullRequest?.run).toContain("Pull request verification API path: REST");
-    expect(verifyPullRequest?.run).toContain("GraphQL fallback");
-    expect(verifyPullRequest?.run).toContain("rate limit");
-    expect(verifyPullRequest?.run).toContain('gh pr view "$PR_NUMBER"');
+    // The REST/GraphQL snapshot block now lives in the unit-tested helper script
+    // (test/e2e-pr-snapshot.test.ts); the workflow calls it and asserts the snapshot.
+    expect(verifyPullRequest?.run).toContain('node "${ACTION_PATH}/scripts/e2e-pr-snapshot.mjs"');
+    expect(verifyPullRequest?.run).toContain("contributors-please: pending");
+    expect(verifyPullRequest?.run).toContain("contributors-please/update");
+    const verifyEnv = (verifyPullRequest as { env?: Record<string, string> }).env;
+    expect(verifyEnv?.OUT_PATH).toBe("/tmp/pull-request.json");
 
     expect(removeLabel?.run).toContain(
       'gh api --method DELETE "repos/${TARGET_OWNER}/${TARGET_REPO}/issues/${PR_NUMBER}/labels/contributors-please:%20pending"'
