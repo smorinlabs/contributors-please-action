@@ -89,6 +89,7 @@ export async function checkReleasePropagation(version, deps) {
 
 function defaultProbes(version) {
   const bare = version.replace(/^v/, "");
+  const actionRepo = "smorinlabs/contributors-please-action";
   return {
     tagExists: async () => Boolean(await tryGh(["api", `repos/smorinlabs/contributors-please/git/refs/tags/${version}`])),
     npmPublished: async () => {
@@ -97,15 +98,75 @@ function defaultProbes(version) {
     },
     githubReleaseExists: async () =>
       Boolean(await tryGh(["api", `repos/smorinlabs/contributors-please/releases/tags/${version}`])),
-    // TODO(stub): npm/tag/release are really probed above; the action-sync and
-    // downstream probes are not yet wired, so a live run cannot currently report
-    // `action-main-stale`, `action-sync-pr-open`, or `downstream-running`. Wire these
-    // to `gh` (action main .contributors-please-engine-ref vs requested; open sync PR;
-    // downstream wrapper/child run status) before relying on those states live.
-    // classifyState (the decision logic) is fully unit-tested with injected evidence.
-    actionState: async () => ({ dispatched: true, syncPrOpen: false, mainAtLeastRequested: true }),
-    downstreamState: async () => ({ running: false, complete: true }),
+    actionState: async () => {
+      // Action main's bundled engine ref vs the requested version (>=, per DOC3).
+      const encoded = await tryGh([
+        "api",
+        `repos/${actionRepo}/contents/.contributors-please-engine-ref`,
+        "--jq",
+        ".content",
+      ]);
+      const mainRef = decodeBase64(encoded).trim();
+      const mainAtLeastRequested = Boolean(mainRef) && compareVersions(mainRef, version) >= 0;
+      // Open sync PR for this version (head ref like sync/contributors-please-v1.4.0).
+      const openSyncPrs = await tryGh([
+        "api",
+        `repos/${actionRepo}/pulls`,
+        "--jq",
+        `[.[] | select(.head.ref | test("sync.*${bare}"))] | length`,
+      ]);
+      const syncPrOpen = Number(openSyncPrs || 0) > 0;
+      // "Dispatched" = the release reached the action somehow (PR open or main bumped).
+      return { dispatched: mainAtLeastRequested || syncPrOpen, syncPrOpen, mainAtLeastRequested };
+    },
+    downstreamState: async () => {
+      const latest = await tryGh([
+        "api",
+        `repos/${actionRepo}/actions/workflows/downstream-e2e.yml/runs?branch=main&per_page=1`,
+        "--jq",
+        '.workflow_runs[0] | "\\(.status) \\(.conclusion // "")"',
+      ]);
+      return classifyDownstreamRun(latest);
+    },
   };
+}
+
+// Compare vX.Y.Z release tags numerically; a prerelease suffix is ignored (release
+// tags are the propagation unit). Returns -1 | 0 | 1.
+export function compareVersions(a, b) {
+  const parts = value =>
+    String(value)
+      .replace(/^v/, "")
+      .split("-")[0]
+      .split(".")
+      .map(part => Number.parseInt(part, 10) || 0);
+  const pa = parts(a);
+  const pb = parts(b);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i += 1) {
+    const x = pa[i] ?? 0;
+    const y = pb[i] ?? 0;
+    if (x !== y) return x < y ? -1 : 1;
+  }
+  return 0;
+}
+
+// Map a "<status> <conclusion>" line from the latest downstream-e2e run.
+export function classifyDownstreamRun(line) {
+  const [status = "", conclusion = ""] = String(line ?? "").trim().split(/\s+/);
+  if (!status) return { running: false, complete: false };
+  return {
+    running: status !== "completed",
+    complete: status === "completed" && conclusion === "success",
+  };
+}
+
+function decodeBase64(value) {
+  if (!value) return "";
+  try {
+    return Buffer.from(String(value).replace(/\s/g, ""), "base64").toString("utf8");
+  } catch {
+    return "";
+  }
 }
 
 async function tryGh(args) {
