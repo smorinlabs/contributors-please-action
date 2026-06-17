@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file. The format 
 
 Releases are managed by [release-please](https://github.com/googleapis/release-please) from conventional commits on `main`.
 
+## [1.3.6](https://github.com/smorinlabs/contributors-please-action/compare/v1.3.5...v1.3.6) (2026-06-17)
+
+
+### CI/CD
+
+* extract release-resilience behavior into tested helper scripts ([#45](https://github.com/smorinlabs/contributors-please-action/issues/45)) ([07e7cac](https://github.com/smorinlabs/contributors-please-action/commit/07e7caca50a28bf4f038e33a2f2b3e6287e0943c))
+
 ## [1.3.5](https://github.com/smorinlabs/contributors-please-action/compare/v1.3.4...v1.3.5) (2026-06-17)
 
 
