@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file. The format 
 
 Releases are managed by [release-please](https://github.com/googleapis/release-please) from conventional commits on `main`.
 
+## [1.3.10](https://github.com/smorinlabs/contributors-please-action/compare/v1.3.9...v1.3.10) (2026-09-01)
+
+
+### CI/CD
+
+* add difftree PR comment workflow ([962659c](https://github.com/smorinlabs/contributors-please-action/commit/962659c686f332dd303368e8b2cada5adfb2842d))
+* add difftree PR comment workflow ([95ce71e](https://github.com/smorinlabs/contributors-please-action/commit/95ce71ec836418a93eab8d770011a4339500439c))
+* sync difftree PR comment workflow to canonical template ([cbb1fd4](https://github.com/smorinlabs/contributors-please-action/commit/cbb1fd47b8ef9781c1557230034c37dc51c15e18))
+* sync difftree PR comment workflow to canonical template ([9d9a5be](https://github.com/smorinlabs/contributors-please-action/commit/9d9a5be59db81ada94caa98b33ca551fe5707240))
+* trigger difftree re-run ([9c5111f](https://github.com/smorinlabs/contributors-please-action/commit/9c5111f21a34eafacabe63bbb027920c2edd3e65))
+
 ## [1.3.9](https://github.com/smorinlabs/contributors-please-action/compare/v1.3.8...v1.3.9) (2026-06-17)
 
 
