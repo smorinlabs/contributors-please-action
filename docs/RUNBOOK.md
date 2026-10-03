@@ -164,6 +164,43 @@ The lane value is validated (`fast`|`full`) in `scripts/dispatch-downstream-suit
 `action-downstream-suite.yml` is tuned live against the running suite; the selector
 and its propagation are wired and default to `full`.
 
+## Downstream waiting and credential recovery
+
+The upstream waiter uses Actions REST APIs instead of `gh run watch`, so a
+repository-scoped fine-grained PAT or GitHub App credential can dispatch and
+observe the suite without Checks permissions. Keep the existing
+`CONTRIBUTORS_PLEASE_TEST_DISPATCH_TOKEN` secret reference. Its target is only
+`smorinlabs/contributors-please-test`: Contents write for `repository_dispatch`
+and Actions read for authenticated run discovery/status polling (Metadata read
+is implicit). The source checkout uses its existing `GITHUB_TOKEN`; the test
+repository uses its own existing token to dispatch component workflows.
+
+The waiter matches the exact `source-run <SOURCE_RUN_ID>` title token, then polls
+that run's REST status every 15 seconds. Only `completed` with `success` passes;
+missing runs, unsuccessful conclusions, API errors, and timeouts fail the job.
+Discovery defaults to 60 attempts (`MAX_DISCOVERY_ATTEMPTS`). Discovery and
+completion share a 45-minute deadline (`WAIT_TIMEOUT_MS`); both overrides must
+be positive integers. Each API subprocess is limited to 30 seconds or the
+remaining deadline. HTTP 429/5xx and subprocess timeouts retry at most three
+attempts per request, 15 seconds apart. Other errors fail immediately. A timeout
+does not cancel the downstream run; inspect its linked run before retrying.
+
+HTTP 401 at dispatch means the dedicated credential was rejected; changing the
+waiter cannot restore it. Steve must securely restore that secret with an
+approved valid credential for the target and permissions above. Do not paste
+credential values into issues, logs, or chat, reuse unrelated secrets, or broaden
+permissions. App installation tokens expire after one hour; keep the wait within
+the token's remaining lifetime. No credential is created or selected by the waiter.
+
+After restoration, run `downstream-e2e.yml` from the repair branch with
+`action_ref` set to the exact repair commit, `wait=true`, and `suite_scope=full`.
+Record the upstream and correlated downstream run URLs and require all component
+suites, including live adoption, to succeed. Dispatch acceptance or local tests
+alone do not complete this verification.
+
+References: [repository dispatch permissions](https://docs.github.com/en/rest/repos/repos#create-a-repository-dispatch-event),
+[workflow run permissions](https://docs.github.com/en/rest/actions/workflow-runs#get-a-workflow-run).
+
 ## Engine Sync Check
 
 The action must stay in sync with the `contributors-please` engine across four
