@@ -10,12 +10,14 @@ const execFileAsync = promisify(execFile);
 const POLL_INTERVAL_MS = 15000;
 const REQUEST_TIMEOUT_MS = 30000;
 
+/** Find a child by its complete source-run title token, never a partial ID. */
 export function findChildRun(runs, sourceRunId) {
   const marker = new RegExp(`(?:^|\\s)source-run ${escapeRegExp(sourceRunId)}(?=\\s|$)`);
   return runs.find(run => marker.test(String(run.displayTitle ?? "")));
 }
 
 // Use only Actions REST endpoints, avoiding gh run watch's Checks dependency.
+/** Read Actions REST JSON with a bounded subprocess and sanitized retry errors. */
 export async function githubGet(path, timeout, exec = execFileAsync) {
   let stdout;
   try {
@@ -30,6 +32,7 @@ export async function githubGet(path, timeout, exec = execFileAsync) {
   return JSON.parse(stdout);
 }
 
+/** Discover and await the correlated child; only completed/success returns zero. */
 export async function waitForSuite(env, deps = {}) {
   const sourceRunId = required(env, "SOURCE_RUN_ID");
   const repo = required(env, "TARGET_REPO");
@@ -55,7 +58,7 @@ export async function waitForSuite(env, deps = {}) {
         return result;
       } catch (error) {
         if (!error.retryable || attempt >= 3) throw error;
-        logger(`Retrying downstream status request (${attempt}/3)`);
+        logger(`Retrying downstream status request (${attempt}/3): ${error.message}`);
         await pause();
       }
     }
@@ -95,18 +98,21 @@ export async function waitForSuite(env, deps = {}) {
   }
 }
 
+/** Validate configurable attempt/deadline bounds before any API requests. */
 function positiveInteger(value, name) {
   const number = Number(value);
   if (!Number.isSafeInteger(number) || number <= 0) throw new Error(`${name} must be a positive integer`);
   return number;
 }
 
+/** Read a nonempty environment setting or fail with its missing variable name. */
 function required(env, name) {
   const value = String(env[name] ?? "").trim();
   if (!value) throw new Error(`wait-downstream-suite requires ${name}`);
   return value;
 }
 
+/** Quote regex metacharacters so source-run IDs are matched literally. */
 function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

@@ -64,6 +64,7 @@ describe("waitForSuite", () => {
 
 const env = { SOURCE_RUN_ID: "12345", TARGET_REPO: "o/r", TARGET_WORKFLOW: "suite.yml" };
 const listRuns = async () => runs("12345");
+/** Advance a fake monotonic clock during sleeps without wall-clock delays. */
 function clock() {
   let time = 0;
   return { now: () => time, sleep: vi.fn(async (ms: number) => { time += ms; }) };
@@ -134,6 +135,19 @@ describe("REST completion polling", () => {
     await expect(waitForSuite(env, { listRuns, get, ...timer })).rejects.toThrow("HTTP 503");
     expect(get).toHaveBeenCalledTimes(3);
     expect(timer.sleep).toHaveBeenCalledTimes(2);
+  });
+
+  it("retains the sanitized API cause when a retry pause reaches the deadline", async () => {
+    const timer = clock();
+    const logs: string[] = [];
+    const get = async () => githubGet("p", 1000, async () => {
+      throw { stderr: "private diagnostic (HTTP 503)" };
+    });
+    await expect(waitForSuite({ ...env, WAIT_TIMEOUT_MS: "10" }, {
+      listRuns, get, ...timer, logger: (line: string) => logs.push(line),
+    })).rejects.toThrow("Timed out");
+    expect(logs.join("\n")).toContain("GitHub API returned HTTP 503");
+    expect(logs.join("\n")).not.toContain("private diagnostic");
   });
 
   it("recovers from a transient error without reporting premature success", async () => {
